@@ -1,4 +1,6 @@
-# Tyrian for the Sega Mega Drive / Genesis
+# Tyrian MD
+
+**Tyrian for the Sega Mega Drive / Genesis — Mega Drive version by Jonathan Santos.**
 
 A port of **Tyrian** (1995, Epic MegaGames) to stock Mega Drive hardware: 68000
 @ 7.67 MHz, 64 KB RAM, 4 MB cartridge, no add-ons. Built with SGDK 2.00 from
@@ -60,6 +62,15 @@ make bench-levels  # frames used per level (manual, minutes)
 
 `make parity` runs the ROM headless on a 68000 emulator (Musashi) and checks it
 reaches the same game state as the host build on the same input replay.
+
+## Credits
+
+- Mega Drive version: Jonathan Santos
+- Tyrian (1995, Epic MegaGames): Jason Emery (programming, design), Daniel Cook
+  (artwork), Alexander Brandon (music, story), Andreas Molnar (LOUDNESS sound
+  system, music) and the rest of the team listed in the game's credits
+- Title art: the original title screen redrawn with "MD" (generated with
+  Google Gemini image generation from the PC title, `res/art/title_md.png`)
 
 ## Licenses
 

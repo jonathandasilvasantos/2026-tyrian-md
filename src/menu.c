@@ -10,6 +10,7 @@
 #include "gen_data/items.h"
 #include "gen_data/script.h"
 #include "gen_data/sprites.h"
+#include "gen_data/title.h"
 
 #define FONT_TILE TILE_USER_INDEX
 static u16 held;
@@ -236,4 +237,42 @@ void message_screen(const char *line1, const char *line2)
     menu_text(2, 7, line2, 36);
     menu_text(2, 10, "Press START", 36);
     while (!(menu_pad_edge() & (BUTTON_START | BUTTON_B | BUTTON_A))) menu_frame();
+}
+
+/* centered text, 40 columns */
+static void menu_center(u16 row, const char *s)
+{
+    u16 len = strlen(s);
+    menu_text(len < 40 ? (40 - len) / 2 : 0, row, s, len);
+}
+
+void title_screen(void)
+{
+    u16 i, blink = 0, row[40];
+
+    menu_begin();
+    VDP_setEnable(FALSE);
+    PAL_setColors(0, title_palette, 32, CPU);
+    PAL_setColors(48, title_palette + 48, 16, CPU);
+    VDP_loadTileData(title_tiles, FONT_TILE + 192, TITLE_TILES, DMA);
+    for (i = 0; i < 28; i++) {
+        u16 x;
+        for (x = 0; x < 40; x++) row[x] = title_map[i * 40 + x] + FONT_TILE + 192;
+        VDP_setTileMapDataRow(BG_B, row, i, 0, 40, DMA);
+    }
+    VDP_setEnable(TRUE);
+    /* credits on black bands (the font's opaque background) under the art */
+    menu_center(9, " Mega Drive version by Jonathan Santos ");
+    menu_center(10, " Tyrian by Jason Emery and Daniel Cook ");
+    menu_center(11, " Music by A. Brandon and A. Molnar ");
+    menu_center(12, " Copyright 1995 Epic MegaGames ");
+#ifdef AUTOPLAY
+    return;
+#endif
+    for (;;) {
+        if ((blink++ & 31) == 0) menu_center(13, blink & 32 ? "            " : " PRESS START ");
+        if (menu_pad_edge() & (BUTTON_START | BUTTON_A | BUTTON_B)) break;
+        menu_frame();
+    }
+    menu_center(13, "            ");
 }

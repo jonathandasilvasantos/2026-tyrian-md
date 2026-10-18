@@ -87,6 +87,7 @@ int main(bool hard)
 {
     VDP_setScreenWidth320();
     sound_init();
+    if (!debug_level) title_screen();
     game_init();          /* new game: items, RNG */
     script_start();
     if (debug_level) {    /* benchmark entry: one level, replayed forever */
@@ -112,7 +113,8 @@ int main(bool hard)
             break;
         }
         case FLOW_END:
-            message_screen("EPISODE COMPLETE", level_names[0]);
+            message_screen("EPISODE COMPLETE", "Tyrian MD by Jonathan Santos");
+            title_screen();
             game_init();
             script_start();
             break;

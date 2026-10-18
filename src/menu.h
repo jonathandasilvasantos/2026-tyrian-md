@@ -11,5 +11,6 @@ void menu_frame(void);                 /* end of frame */
 /* upgrade shop + destination choice; returns the chosen section (0 = none) */
 u8 shop_screen(u8 shop);
 void message_screen(const char *line1, const char *line2);
+void title_screen(void);           /* Tyrian MD + credits, waits for START */
 
 #endif

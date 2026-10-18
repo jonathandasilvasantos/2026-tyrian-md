@@ -1,4 +1,4 @@
-# agents.md — Tyrian → Sega Genesis port
+# agents.md — Tyrian MD (Tyrian → Sega Mega Drive / Genesis port)
 
 Single source of project rules for humans and coding agents. Read it before
 changing anything. Goal: a **full-speed, 60 Hz Tyrian on stock Genesis
@@ -224,6 +224,11 @@ Every intentional difference from OpenTyrian, one line each:
   instead of the PC's first-free scan (visual only).
 - HUD bottom bar — event 16 window texts (4 s) and the boss bar (event 79,
   most damaged linked enemy, as draw_boss_bar) instead of the PC's top bar.
+- Title screen — "Tyrian MD": the PC title (pic 4 + PLANET_SHAPES logo)
+  redrawn with "MD" via Gemini image generation (res/art/title_md.png,
+  converted by gen_title), credits: Mega Drive version by Jonathan Santos,
+  Jason Emery, Daniel Cook, Alexander Brandon, Andreas Molnar, Epic
+  MegaGames. SMALL_FONT's 12-px M/W are squeezed to 8 px.
 - Backgrounds — layer 3 (top) not drawn yet; layers are 336 px wide and are
   centered (8 px cut each side) instead of following the player's X — PC
   shows 264 px of them.

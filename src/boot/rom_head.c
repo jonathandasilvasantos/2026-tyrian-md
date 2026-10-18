@@ -10,8 +10,8 @@ const ROMHeader rom_header = {
     "SEGA MEGA DRIVE ",
 #endif
     "(C)TYRN 2026    ",
-    "TYRIAN GENESIS                                  ",
-    "TYRIAN GENESIS                                  ",
+    "TYRIAN MD                                       ",
+    "TYRIAN MD                                       ",
     "GM 00000000-00",
     0x000,
     "JD              ",

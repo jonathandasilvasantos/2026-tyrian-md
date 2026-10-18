@@ -11,3 +11,4 @@ res/music/
 __pycache__/
 .pytest_cache/
 res/resources.rs
+!res/art/

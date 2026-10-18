@@ -221,6 +221,9 @@ def _glyph_tiles(glyph, cells_h, fg=15, bg=14, threshold=0):
     offsets added to a color bank (JE_dString); shades <= threshold are the
     dark anti-aliasing that shapes the small glyphs and stay background."""
     img = np.full((8 * cells_h, 8), bg, np.int32)
+    if glyph and len(glyph[0]) > 8:   # M, W (12 px): squeeze to the 8-px cell
+        w = len(glyph[0])
+        glyph = [[row[x * w // 8] for x in range(8)] for row in glyph]
     if glyph:
         for y, row in enumerate(glyph[:8 * cells_h - 1]):
             for x, p in enumerate(row[:8]):
@@ -300,6 +303,57 @@ def gen_sounds(out, res_dir):
     emit.write_if_changed(os.path.join(out, "sound_table.h"), h)
     emit.write_if_changed(os.path.join(out, "sound_table.c"), c)
     return res
+
+
+def gen_title(out, art=os.path.join("res", "art", "title_md.png")):
+    """Title screen art (res/art/title_md.png: the original title screen
+    redrawn with "MD", made with Gemini image generation from the PC title)
+    -> 320x224, quantized per cell to palette lines 0, 1 and 3 (line 2 is
+    the menu font), deduplicated cells and a 40x28 tilemap."""
+    from PIL import Image
+    im = Image.open(art).convert("RGB")
+    w, h = im.size
+    im = im.resize((320, round(320 * h / w)), Image.LANCZOS)
+    top = (im.size[1] - 224) // 2
+    im = im.crop((0, top, 320, top + 224))
+    # first to 256 colors so the cell quantizer works on an indexed image
+    pim = im.quantize(256, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
+    rgb = np.array(pim.getpalette()[:768], np.float64).reshape(256, 3)
+    bmp = np.array(pim, np.uint8)
+    cs = raster.cells(bmp)
+    hists = []
+    for c in cs:
+        v, n = np.unique(c, return_counts=True)
+        hists.append({int(a): int(b) for a, b in zip(v, n)})
+    pals, assign = quantize.quantize_cells(hists, rgb, n_pals=3)
+    luts = [quantize.remap(np.arange(256), rgb, p) for p in pals]
+    lines = (0, 1, 3)
+    cell_ids, tiles, tmap = {}, [], []
+    for c, g in zip(cs, assign):
+        q = luts[g][c].astype(np.uint8)
+        forms = [(q, 0), (q[:, ::-1], 0x800), (q[::-1, :], 0x1000), (q[::-1, ::-1], 0x1800)]
+        key, flip = min((f.tobytes(), fl) for f, fl in forms)
+        if key not in cell_ids:
+            cell_ids[key] = len(cell_ids)
+            tiles += tiles_column_major(np.frombuffer(key, np.uint8).reshape(8, 8), 1, 1)
+        tmap.append(cell_ids[key] | flip | (lines[int(g)] << 13))
+    cram = [0] * 64
+    for p, line in zip(pals, lines):
+        wds = [0] + [palette.to_cram(tuple(int(x) for x in c)) for c in p]
+        cram[line * 16:line * 16 + len(wds)] = wds
+    h = (emit.HEADER + "#ifndef GEN_TITLE_H\n#define GEN_TITLE_H\n#include <types.h>\n"
+         f"#define TITLE_TILES {len(cell_ids)}\n"
+         "/* 40x28 tilemap: attrs with the tile index relative to the loaded tiles;\n"
+         " * palette: 64 CRAM words, line 2 unused (menu font) */\n"
+         "extern const u32 title_tiles[];\nextern const u16 title_map[40 * 28];\n"
+         "extern const u16 title_palette[64];\n#endif\n")
+    c = emit.HEADER + '#include "title.h"\n'
+    c += emit.c_array("u32", "title_tiles", tiles, 8, "0x{:08X}")
+    c += emit.c_array("u16", "title_map", tmap, 40)
+    c += emit.c_array("u16", "title_palette", cram)
+    emit.write_if_changed(os.path.join(out, "title.h"), h)
+    emit.write_if_changed(os.path.join(out, "title.c"), c)
+    print(f"   gen: title: {len(cell_ids)} cells")
 
 
 def gen_items(out):
@@ -692,6 +746,7 @@ def main():
     gen_levels(out, EPISODE, nums)
     gen_script(out, EPISODE)
     gen_fonts(out)
+    gen_title(out)
     res = gen_sounds(out, "res")
     # music: VGMs from tools/music_vgm.py (make music) copied to res/music
     songs = sorted(f for f in os.listdir(os.path.join("res", "music")) if f.endswith(".vgm")) \
