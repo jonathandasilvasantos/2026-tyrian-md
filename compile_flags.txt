@@ -1,0 +1,6 @@
+-std=c11
+-Isrc
+-Isgdk/inc
+-Isgdk/res
+-Ires
+-DSGDK_GCC

@@ -1,0 +1,13 @@
+out/
+tyrian-data/
+sgdk/
+src/boot/sega.s
+res/*.h
+src/gen_data/
+res/gen/
+res/resources.res
+res/sfx/
+res/music/
+__pycache__/
+.pytest_cache/
+res/resources.rs
