@@ -11,6 +11,7 @@
 #include "gen_data/script.h"
 #include "gen_data/sprites.h"
 #include "gen_data/title.h"
+#include "sound.h"
 
 #define FONT_TILE TILE_USER_INDEX
 static u16 held;
@@ -246,10 +247,13 @@ static void menu_center(u16 row, const char *s)
     menu_text(len < 40 ? (40 - len) / 2 : 0, row, s, len);
 }
 
+#define SONG_TITLE 30   /* musmast.h SONG_TITLE 29, 1-based here */
+
 void title_screen(void)
 {
     u16 i, blink = 0, row[40];
 
+    sound_music(SONG_TITLE);
     menu_begin();
     VDP_setEnable(FALSE);
     PAL_setColors(0, title_palette, 32, CPU);
