@@ -41,7 +41,7 @@ volatile u8 debug_episode;
 volatile u8 debug_loadout, debug_left_option, debug_right_option, debug_bombs, debug_special;
 /* Headless runner compares a fixed number of ticks, including after death. */
 volatile u8 debug_hold_level, debug_checkpoint;
-volatile u8 debug_story_page, debug_story_picture;
+volatile u8 debug_story_page, debug_story_picture, debug_cubes;
 
 /* game_tick: one simulation step.  Kept as a real function (noinline) so
  * tools/bench68k can count ticks and feed replay pads by its address. */
@@ -140,6 +140,7 @@ int main(bool hard)
 {
     VDP_setScreenWidth320();
     cart_init();
+    dmaq_init();
     sound_init();
     game_new(debug_episode ? debug_episode : LEVEL_DEFAULT_EPISODE, DIFFICULTY_NORMAL);
     if (!debug_level && !debug_episode) {
@@ -193,6 +194,7 @@ int main(bool hard)
             story_resume();
             break;
         case FLOW_SHOP:
+            if (debug_cubes) { debug_cubes = 0; cube_screen(); }
             sound_music(script.shop_song);
             script_goto(shop_screen(st.shop));
             break;

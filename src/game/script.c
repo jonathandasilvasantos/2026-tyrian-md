@@ -20,8 +20,10 @@ static void go_section(uint8_t sec)
 void script_start(void)
 {
     script.choices = 0;
+    script.cube_list[0] = script.cube_list[1] = script.cube_list[2] = script.cube_list[3] = 0;
     script.died = script.timer_expired = 0;
     script.save_section = 1;
+    script.save_cube_max = game.cube_max;
     script.shop_song = DEFAULT_SONG_BUY + 1;
     go_section(1);
 }
@@ -39,7 +41,9 @@ FlowStep script_run(void)
             switch (op[0]) {
             case OP_JUMP: case OP_JUMP_IF_EASY: case OP_JUMP_IF_DIED: case OP_JUMP_IF_TIMER:
             case OP_JUMP_IF_SHIP13: case OP_SHOP: case OP_SHOP_SONG:
-            case OP_TEXT: case OP_PICTURE: case OP_MUSIC: case OP_FADE: len = 2; break;
+            case OP_TEXT: case OP_PICTURE: case OP_MUSIC: case OP_FADE:
+            case OP_CUBE_SET: case OP_CUBE_ADD: len = 2; break;
+            case OP_CUBES: len = 2 + op[1]; break;
             case OP_LEVEL: len = 6; break;
             case OP_CHOOSE: len = 2 + 2 * op[1]; break;
             }
@@ -98,6 +102,18 @@ FlowStep script_run(void)
             }
             len = 2;
             break;
+        case OP_CUBES: {
+            uint8_t i;
+            for (i = 0; i < op[1]; i++) script.cube_list[i] = op[2 + i];
+            if (game.cube_max > op[1]) game.cube_max = op[1];
+            len = 2 + op[1];
+            break;
+        }
+        case OP_CUBE_SET: case OP_CUBE_ADD:
+            game.cube_max = (op[0] == OP_CUBE_SET ? 0 : game.cube_max) + op[1];
+            if (game.cube_max > 4) game.cube_max = 4;
+            len = 2;
+            break;
         case OP_SHOP_SONG:
             script.shop_song = op[1];
             len = 2;
@@ -136,5 +152,6 @@ void script_level_done(uint8_t next_section, uint8_t died)
         go_section(next_section);
         /* JE_loadMap initializes saveLevel on entry, before internal jumps. */
         script.save_section = script.section;
+        script.save_cube_max = game.cube_max;
     }
 }

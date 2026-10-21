@@ -16,6 +16,8 @@ OP_JUMP_IF_SHIP13, OP_END_EPISODE, OP_SHOP_SONG = 10, 11, 12
 
 OP_TEXT, OP_PICTURE, OP_MUSIC, OP_FADE, OP_SCENE_RESET = 13, 14, 15, 16, 17
 
+OP_CUBES, OP_CUBE_SET, OP_CUBE_ADD = 18, 19, 20
+
 SHOP_ROWS = ("Ship", "WeapF", "WeapR", "Power", "Engine", "Opt1", "Opt2", "Armor", "Shield")
 
 
@@ -95,6 +97,11 @@ def compile_script(episode):
             ops += bytes([OP_FADE, "BCF".index(c)])
         elif c == "n":
             ops += bytes([OP_SCENE_RESET])
+        elif c == "?":
+            count = min(atoi(s[4:]), 4)
+            ops += bytes([OP_CUBES, count] + [atoi(s[7 + 4*k:]) for k in range(count)])
+        elif c in "!+":
+            ops += bytes([OP_CUBE_SET if c == "!" else OP_CUBE_ADD, min(atoi(s[4:]), 4)])
         elif c == "J":
             ops += bytes([OP_JUMP, atoi(s[3:])])
         elif c == "L":
@@ -132,7 +139,7 @@ def compile_script(episode):
             ops += bytes([OP_SHOP_SONG, atoi(s[3:])])
         elif c == "Q":
             ops += bytes([OP_END_EPISODE])
-        # ]2 (two-player jump) never taken; A g x e ? ! + @ S: animation/extras
+        # ]2 (two-player jump) never taken; A g x e @ S: animation/extras
     ops += bytes([OP_END])
     return bytes(ops), sections, shops, names, pages
 

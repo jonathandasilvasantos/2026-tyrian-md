@@ -20,7 +20,7 @@ HOST_CFLAGS := -std=c11 -O2 -Wall -Wextra -Werror -Isrc $(GAME_FLAGS)
 ROM_EXTRA_FLAGS := -fno-strict-aliasing -Wno-unterminated-string-initialization $(GAME_FLAGS)
 JAVA_HEADLESS_TOOL_OPTIONS := -Djava.awt.headless=true
 
-GAME_SRCS := $(wildcard src/game/*.c) src/gen_data/items.c src/gen_data/level.c src/gen_data/script.c src/gen_data/episode_tables.c src/gen_data/motion.c src/gen_data/shot_shapes.c src/gen_data/difficulty.c
+GAME_SRCS := $(wildcard src/game/*.c) src/gen_data/items.c src/gen_data/level.c src/gen_data/script.c src/gen_data/episode_tables.c src/gen_data/motion.c src/gen_data/shot_shapes.c src/gen_data/difficulty.c src/gen_data/cubes.c
 GAME_HDRS := $(wildcard src/game/*.h)
 
 EPISODE     ?= 1
@@ -28,7 +28,7 @@ BENCH_TICKS ?= 600
 REPLAY      ?= test/replays/boot.txt
 MUSASHI_REV := 313ebf1bd9f4d0d93341eb5ce21fd8a119e9dbdd
 
-.PHONY: all music setup-sgdk gen rom rom-demo host unit-test py-test test bench-68k parity parity-episodes parity-sidekicks parity-checkpoint parity-specials parity-combos parity-story parity-pal clean
+.PHONY: all music setup-sgdk gen rom rom-demo host unit-test py-test test bench-68k parity parity-episodes parity-sidekicks parity-checkpoint parity-specials parity-combos parity-story parity-cubes parity-pal clean
 
 all: rom
 
@@ -192,15 +192,18 @@ parity-story: out/bench68k out/rom.syms out/tyrian_host
 	@B68K_STORY=0,5 $(MAKE) --no-print-directory parity EPISODE=1
 	@B68K_STORY=5,0 $(MAKE) --no-print-directory parity EPISODE=4
 
+parity-cubes: out/bench68k out/rom.syms out/tyrian_host
+	@B68K_CUBES=1 $(MAKE) --no-print-directory parity-episodes
+
 parity-checkpoint:
 	@B68K_CHECKPOINT=1 $(MAKE) --no-print-directory parity-episodes
 
 parity-pal: out/bench68k out/rom.syms out/tyrian_host
 	@echo "   PAL replay checks"
-	@B68K_PAL=1 $(MAKE) --no-print-directory parity-episodes parity-sidekicks parity-checkpoint parity-specials parity-combos parity-story
+	@B68K_PAL=1 $(MAKE) --no-print-directory parity-episodes parity-sidekicks parity-checkpoint parity-specials parity-combos parity-story parity-cubes
 
 test: rom
-	@$(MAKE) --no-print-directory py-test out/test_game out/test_password out/test_filter out/test_stars parity-episodes parity-sidekicks parity-checkpoint parity-specials parity-combos parity-story parity-pal
+	@$(MAKE) --no-print-directory py-test out/test_game out/test_password out/test_filter out/test_stars parity-episodes parity-sidekicks parity-checkpoint parity-specials parity-combos parity-story parity-cubes parity-pal
 	@./out/test_game
 	@./out/test_password
 	@./out/test_filter

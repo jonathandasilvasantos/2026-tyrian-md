@@ -40,6 +40,15 @@ def test_episode_levels_and_destinations(episode, first):
                     script.OP_JUMP_IF_TIMER, script.OP_JUMP_IF_SHIP13):
             assert 0 < ops[pc + 1] < len(sections)
             size = 2
+        elif op == script.OP_CUBES:
+            from tyrdata.cubes import load
+            count = ops[pc + 1]
+            assert count <= 4
+            assert all(1 <= cube <= len(load(episode)) for cube in ops[pc + 2:pc + 2 + count])
+            size = 2 + count
+        elif op in (script.OP_CUBE_SET, script.OP_CUBE_ADD):
+            assert ops[pc + 1] <= 4
+            size = 2
         elif op == script.OP_TEXT:
             assert ops[pc + 1] < len(pages)
             size = 2

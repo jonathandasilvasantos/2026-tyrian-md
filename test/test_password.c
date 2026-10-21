@@ -28,7 +28,7 @@ int main(void)
         p->weapon_power[0] = 11; p->weapon_power[1] = 8; p->weapon_mode = 2;
         p->option_id[0] = 30; p->option_id[1] = 29;
         p->cash = 0xfedcba98; rng_seed(0x89abcdef);
-        game.cube_max = 9; script.shop_song = 41;
+        game.cube_max = script.save_cube_max = 9; script.shop_song = 41;
         password_encode(code);
         CHECK(strlen(code) == PASSWORD_LENGTH);
         game_new(ep == 4 ? 1 : ep + 1, DIFFICULTY_EASY);

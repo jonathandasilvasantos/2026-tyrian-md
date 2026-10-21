@@ -21,6 +21,7 @@
  * cartridge space or mapped read past physical ROM, a stack deeper than SGDK's 0xA00 reserve, or no
  * game_tick for B68K_HANG frames (default 600).
  * Environment: B68K_EPISODE=n selects episode n (default ROM menu default),
+ * B68K_CUBES=1 reads, scrolls and switches initial datacubes before replay,
  * B68K_STORY=page,picture presents converted story assets before the opening replay,
  * B68K_OPTIONS=left,right equips sidekicks for replay coverage,
  * B68K_PAL=1 selects the 50 Hz/312-line timing model,
@@ -64,7 +65,9 @@ static unsigned force_options, option_left, option_right;
 static uint32_t loadout_addr, left_option_addr, right_option_addr, bombs_addr;
 static unsigned force_bombs, force_checkpoint, force_special;
 static uint32_t special_addr, story_page_addr, story_picture_addr;
-static unsigned force_story, story_page, story_picture;
+static unsigned force_story, story_page, story_picture, force_cubes, reader_start_frame, reader_started;
+static uint32_t cubes_debug_addr, cube_reader_addr;
+static unsigned reader_frame_dma, reader_peak_dma;
 static uint32_t checkpoint_addr;
 static uint32_t tick_addr, hash_addr, crash_lo, crash_hi, die_addr, hold_level_addr, main_addr;
 static uint64_t ticks, want; static unsigned last_tick_frame;
@@ -127,7 +130,9 @@ void bench_instr_hook(unsigned int pc) {
         }
         it_start = c; idle_at_start = idle_total; it_ticked = 0;
     }
+    if (pc == cube_reader_addr && force_cubes && !reader_started) { reader_start_frame = frame_no; reader_started = 1; }
     if (pc == main_addr) {
+        if (cubes_debug_addr) wr8(cubes_debug_addr, force_cubes);
         if (force_story && story_page_addr && story_picture_addr) {
             wr8(story_page_addr, story_page + 1);
             wr8(story_picture_addr, story_picture);
@@ -240,6 +245,8 @@ static void vdp_control(unsigned v) {
             (void)rd8(source + length * 2 - 1);
             dma_transfers++;
             if (ticks && (vdp_regs[1] & 0x40)) frame_dma_bytes += length * 2;
+            if (!ticks && reader_started && frame_no - reader_start_frame < 100 &&
+                (vdp_regs[1] & 0x40)) reader_frame_dma += length * 2;
         }
     }
 }
@@ -265,6 +272,8 @@ static void load_syms(const char *path) {
         if (!strcmp(name, "hash_enabled")) hash_on_addr = addr;
         if (!strcmp(name, "debug_level")) level_addr = addr;
         if (!strcmp(name, "debug_episode")) episode_addr = addr;
+        if (!strcmp(name, "debug_cubes")) cubes_debug_addr = addr;
+        if (!strcmp(name, "cube_screen")) cube_reader_addr = addr;
         if (!strcmp(name, "debug_story_page")) story_page_addr = addr;
         if (!strcmp(name, "debug_story_picture")) story_picture_addr = addr;
         if (!strcmp(name, "debug_special")) special_addr = addr;
@@ -339,6 +348,7 @@ int main(int argc, char **argv) {
     }
     if (getenv("B68K_FUNC")) for (i = 0; i < nsyms - 1; i++) if (!strcmp(syms[i].name, getenv("B68K_FUNC"))) {
         hf_lo = syms[i].addr; hf_hi = syms[i + 1].addr; hf_cyc = calloc((hf_hi - hf_lo) / 2 + 1, 8); }
+    force_cubes = getenv("B68K_CUBES") && atoi(getenv("B68K_CUBES"));
     if (getenv("B68K_STORY")) {
         if (sscanf(getenv("B68K_STORY"), "%u,%u", &story_page, &story_picture) != 2 ||
             story_page >= 32 || (story_picture != 0 && story_picture != 5 && story_picture != 7 &&
@@ -378,7 +388,18 @@ int main(int argc, char **argv) {
         if (force_level && level_addr) wr8(level_addr, (unsigned)force_level);
         /* menus before the first level read the pad directly: tap START */
         if (!ticks) pad = frame_no % 30 < 3 ? 0x80 : 0;
-        frame_base = total_base; frame_idle = 0; frame_dma_bytes = 0;
+        if (!ticks && reader_started) {
+            unsigned elapsed = frame_no - reader_start_frame;
+            if (elapsed < 100) {
+                pad = 0;
+                if (elapsed >= 15 && elapsed < 18) pad = 0x02; /* down */
+                if (elapsed >= 35 && elapsed < 38) pad = 0x08; /* right */
+                if (elapsed >= 55 && elapsed < 58) pad = 0x02;
+                if (elapsed >= 75 && elapsed < 78) pad = 0x04; /* left */
+                if (elapsed >= 95 && elapsed < 98) pad = 0x80;
+            }
+        }
+        frame_base = total_base; frame_idle = 0; frame_dma_bytes = reader_frame_dma = 0;
         ticks_before = ticks;
         prof_on = frame_no >= prof_a && frame_no < prof_b;
         m68k_set_irq(6);
@@ -386,6 +407,8 @@ int main(int argc, char **argv) {
         m68k_set_irq(0);
         while (total_base - frame_base < FRAME_CYC && ticks <= want)
             total_base += (uint64_t)m68k_execute((int)(FRAME_CYC - (total_base - frame_base)));
+        if (reader_frame_dma > reader_peak_dma) reader_peak_dma = reader_frame_dma;
+        if (reader_frame_dma > 7 * 1024) crash_report("datacube DMA exceeds 7 KB", m68k_get_reg(NULL, M68K_REG_PC));
         if (ticks > want) break;
         if (frame_dma_bytes > peak_dma_bytes) { peak_dma_bytes = frame_dma_bytes; peak_dma_frame = frame_no; }
         if (frame_dma_bytes > 7 * 1024) dma_over_budget++;
@@ -430,6 +453,7 @@ int main(int argc, char **argv) {
         }
         printf("SGDK heap free: %u bytes (stack reserve separate)\n", heap_free_bytes);
     }
+    if (force_cubes) printf("datacube DMA peak: %u bytes\n", reader_peak_dma);
     printf("gameplay DMA peak: %u bytes at frame %u; frames above 7 KB: %u\n", peak_dma_bytes, peak_dma_frame, dma_over_budget);
     printf("validated DMA transfers: %u\n", dma_transfers);
     printf("ticks %llu hash %08x\n", (unsigned long long)want, rd32(hash_addr));

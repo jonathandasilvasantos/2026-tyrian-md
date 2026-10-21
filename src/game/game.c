@@ -198,6 +198,7 @@ uint32_t game_hash(void)
             h = mix(h, s->position | (uint32_t)s->speed << 16 | (uint32_t)s->color << 24);
         }
     }
+    if (game.cube_max) h = mix(h, 0xCD000000u | game.cube_max);
     h = mix(h, game.frame);
     h = mix(h, game.cur_loc | (uint32_t)game.event_loc << 16);
     h = mix(h, game.power | (uint32_t)p->cash << 16);

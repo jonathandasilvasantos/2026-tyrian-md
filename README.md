@@ -16,7 +16,8 @@ weapons, equipped story specials and original ship combos, superbombs and astero
 effects and voices. Story starting funds follow the original episode; episode 4 also applies
 the original difficulty reduction. Six story difficulty choices, enemy scaling,
 score-based difficulty progression, starfields/Astral backgrounds, event/flare
-palette effects, the original story text/pictures/music cues, START pause and shop checkpoint passwords
+palette effects, the original story text/pictures/music cues, datacube reading with
+portraits and campaign availability, START pause and shop checkpoint passwords
 are implemented.
 
 Validation covers script references for every episode, host unit tests and
@@ -25,7 +26,7 @@ PAL. Both regions run the same 35 Hz simulation. Full campaigns,
 visual accuracy and hardware timing still need validation; dense scenes can
 slow down. See `agents.md` §8 for deviations and §9 for budgets.
 
-Still required: story text glow/picture pans, ending animation and data cubes, the third
+Still required: story text glow/picture pans, ending animation, the third
 (top) background layer, and the remaining OpenTyrian modes/features. The
 ROM uses the official Sega SSF2 mapper; code, tables and audio stay in the
 fixed lower 3.5 MB, while DMA maps graphics through the upper 512 KB.

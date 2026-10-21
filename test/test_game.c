@@ -9,6 +9,8 @@
 #include "game/level.h"
 #include "game/episode.h"
 #include "game/rng.h"
+#include "game/cubes.h"
+#include "game/password.h"
 #include "game/timing.h"
 #include "game/sidekick.h"
 #include "game/difficulty.h"
@@ -137,7 +139,15 @@ static void test_script_walk(void)
                   st.name == 9 || st.name == 13 || st.name == 255);
         if (st.kind == FLOW_END) break;
         if (st.kind == FLOW_SHOP) {
+            uint8_t slot;
             CHECK(st.shop < SHOP_COUNT);
+            CHECK(cube_available_count() <= 4);
+            for (slot = 0; slot < cube_available_count(); slot++) {
+                const CubeDef *cube = cube_available(slot);
+                CHECK(cube != 0 && cube->title[0] && cube->lines > 0 && cube->lines <= 90);
+                CHECK(cube->face <= 12);
+            }
+            CHECK(cube_available(cube_available_count()) == 0);
             script_goto(script.choices ? script.choice_section[0] : 0);
         } else if (st.kind == FLOW_LEVEL) {
             CHECK(st.level < LEVEL_COUNT);
@@ -147,6 +157,67 @@ static void test_script_walk(void)
     }
     CHECK(steps < 200);
     CHECK(levels_played >= 5);
+}
+
+static void test_initial_cube_access(void)
+{
+    static const uint8_t counts[4] = {4, 2, 1, 4};
+    static const uint8_t first[4] = {1, 1, 11, 4};
+    uint8_t ep = LEVEL_EPISODE;
+    FlowStep st;
+    test_init();
+    script_start();
+    game.cube_max = 999;
+    st = script_run();
+    CHECK(st.kind == FLOW_SHOP);
+    CHECK(cube_available_count() == counts[ep - 1]);
+    CHECK(cube_available(0) == cube_definition(ep, first[ep - 1]));
+    CHECK(cube_definition(0, 1) == 0 && cube_definition(5, 1) == 0);
+    CHECK(cube_definition(ep, 0) == 0 && cube_definition(ep, 255) == 0);
+    CHECK(cube_tile(0, 0) == 0 && cube_tile(0, 18) == 0);
+    game_start_level(LEVEL_FIRST);
+    CHECK(cube_available_count() == 0 && cube_available(0) == 0);
+    {
+        uint32_t before = game_hash();
+        game.cube_max = 1;
+        CHECK(game_hash() != before);
+    }
+}
+
+/* A loaded shop reruns its script from the section checkpoint. Datacube
+ * increments must apply once, preserving the original lastCubeMax save rule. */
+static void test_cube_checkpoint_flow(void)
+{
+    int step;
+    test_init();
+    for (step = 0; step < 200; step++) {
+        FlowStep flow = script_run();
+        if (flow.kind == FLOW_END) break;
+        if (flow.kind == FLOW_LEVEL) {
+            game_start_level(flow.level);
+            game.cube_max = 1; /* one cube collected before the next section */
+            script_level_done(flow.next_section, 0);
+        } else if (flow.kind == FLOW_SHOP) {
+            char code[PASSWORD_LENGTH + 1];
+            uint8_t count = cube_available_count(), ids[4], slot;
+            ScriptState before = script;
+            FlowStep restored;
+            int presentation;
+            for (slot = 0; slot < count; slot++) ids[slot] = script.cube_list[slot];
+            password_encode(code);
+            CHECK(password_load(code));
+            for (presentation = 0; presentation < 100; presentation++) {
+                restored = script_run();
+                if (restored.kind == FLOW_SHOP || restored.kind == FLOW_LEVEL || restored.kind == FLOW_END) break;
+            }
+            CHECK(presentation < 100 && restored.kind == FLOW_SHOP && restored.shop == flow.shop);
+            CHECK(cube_available_count() == count);
+            for (slot = 0; slot < count; slot++) CHECK(script.cube_list[slot] == ids[slot]);
+            script = before;
+            script_goto(script.choices ? script.choice_section[0] : 0);
+        }
+    }
+    CHECK(step < 200);
 }
 
 static void test_shop_trade_in(void)
@@ -481,6 +552,8 @@ int main(void)
     for (test_episode = 1; test_episode <= EPISODE_COUNT; test_episode++) {
         test_story_start();
         CHECK(game.difficulty == (test_episode == 4 ? DIFFICULTY_EASY : DIFFICULTY_NORMAL));
+        test_initial_cube_access();
+        test_cube_checkpoint_flow();
         test_deterministic();
         test_ship_stays_in_pc_bounds();
         test_velocity_is_capped();

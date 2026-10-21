@@ -4,6 +4,8 @@
 
 #include <genesis.h>
 
+void menu_reader_begin(void);          /* font loaded, black background, display off */
+void cube_screen(void);
 u16 menu_story_begin(void);            /* picture tiles loaded, display remains off */
 void menu_begin(void);                 /* black screen, font loaded, planes cleared */
 void menu_text(u16 col, u16 row, const char *s, u16 width);   /* row in 16-px lines */

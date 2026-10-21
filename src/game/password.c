@@ -46,7 +46,8 @@ void password_encode(char out[PASSWORD_LENGTH + 1])
     data[12] = p->weapon_power[0] | p->weapon_power[1] << 4;
     data[13] = p->weapon_mode; data[14] = p->option_id[0]; data[15] = p->option_id[1];
     put32(data + 16, p->cash); put32(data + 20, rng_state);
-    data[24] = game.cube_max >> 8; data[25] = game.cube_max;
+    /* config.c:JE_saveGame stores lastCubeMax, before ]? / ]! / ]+. */
+    data[24] = script.save_cube_max >> 8; data[25] = script.save_cube_max;
     data[26] = script.shop_song; data[27] = p->special_id;
     crc = checksum(data); data[28] = crc >> 8; data[29] = crc;
     for (i = 0; i < 30; i++) {
@@ -94,7 +95,7 @@ uint8_t password_load(const char *text)
     p->weapon_power[0] = data[12] & 15; p->weapon_power[1] = data[12] >> 4;
     p->weapon_mode = data[13]; p->option_id[0] = data[14]; p->option_id[1] = data[15];
     p->cash = get32(data + 16); rng_seed(get32(data + 20));
-    game.cube_max = (uint16_t)data[24] << 8 | data[25];
+    game.cube_max = script.save_cube_max = (uint16_t)data[24] << 8 | data[25];
     script_goto(data[6]); script.save_section = data[6]; script.shop_song = data[26];
     return 1;
 }

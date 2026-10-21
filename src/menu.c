@@ -7,6 +7,7 @@
 #include "game/script.h"
 #include "game/shop.h"
 #include "game/password.h"
+#include "game/cubes.h"
 #include "gen_data/fonts.h"
 #include "gen_data/items.h"
 #include "gen_data/script.h"
@@ -39,7 +40,7 @@ static u16 menu_begin_at(u16 picture_base)
     PAL_setColors(32, spr_palettes, 16, DMA);
     PAL_setColor(0, 0);
     VDP_loadTileData(menu_font_tiles, FONT_TILE, 96 * 2, DMA);
-    next = story_background(picture_base);
+    next = picture_base ? story_background(picture_base) : FONT_TILE + 192;
     held = 0xFFFF;   /* ignore buttons held from before */
     return next;
 }
@@ -48,6 +49,11 @@ void menu_begin(void)
 {
     menu_begin_at(FONT_TILE + 192);
     VDP_setEnable(TRUE);
+}
+
+void menu_reader_begin(void)
+{
+    menu_begin_at(0);
 }
 
 u16 menu_story_begin(void)
@@ -202,6 +208,7 @@ u8 shop_screen(u8 shop_index)
 
     for (i = 0; i < 7; i++)
         if (sh->count[cats[i]]) rows[nrows++] = i;
+    if (cube_available_count()) rows[nrows++] = 7; /* Data after equipment */
     sel = nrows;   /* start on Launch */
 #ifdef AUTOPLAY
     return script.choices ? script.choice_section[0] : 0;
@@ -222,7 +229,8 @@ u8 shop_screen(u8 shop_index)
         }
         if (e & (BUTTON_B | BUTTON_START | BUTTON_A)) {
             if (sel == nrows) return script.choices ? script.choice_section[dest] : 0;
-            category_screen(sh, cats[rows[sel]], cat_names[rows[sel]]);
+            if (rows[sel] == 7) cube_screen();
+            else category_screen(sh, cats[rows[sel]], cat_names[rows[sel]]);
             menu_begin();
             redraw = 1;
         }
@@ -233,7 +241,12 @@ u8 shop_screen(u8 shop_index)
             num(line + 5, players[0].cash);
             menu_text(1, 1, line, 38);
             for (i = 0; i < nrows; i++) {
-                u8 c = cats[rows[i]];
+                u8 c;
+                if (rows[i] == 7) {
+                    menu_text(1, 3 + i, i == sel ? "* DATA - read collected cubes" : "  DATA - read collected cubes", 38);
+                    continue;
+                }
+                c = cats[rows[i]];
                 line[0] = i == sel ? '*' : ' ';
                 line[1] = ' ';
                 strcpy(line + 2, cat_names[rows[i]]);

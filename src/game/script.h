@@ -16,10 +16,11 @@ typedef struct {
 } FlowStep;
 
 typedef struct {
-    uint16_t pc;
+    uint16_t pc, save_cube_max;  /* lastCubeMax: before section cube commands */
     uint8_t section, save_section;
     uint8_t choices, choice_planet[4], choice_section[4];
     uint8_t died, timer_expired;
+    uint8_t cube_list[4];
     uint8_t shop_song;        /* songBuy, 1-based (]i) */
 } ScriptState;
 

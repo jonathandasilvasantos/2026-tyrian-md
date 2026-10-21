@@ -231,12 +231,11 @@ Every intentional difference from OpenTyrian, one line each:
   other enemies, items and explosions share palette line 3.
 - Enemies — single player, story mode; "lives" for
   event 33 is the front weapon power, as on the PC; arcade/2-player items
-  (evalue > 30000) give only their cash, except equipped story-special pickups; data cube
-  text and enemy filters not ported yet; explosion cap 64
+  (evalue > 30000) give only their cash, except equipped story-special pickups; per-enemy palette filters remain pending; explosion cap 64
   (PC 200); event 12's self-modification tracked for 16 events.
 - Flow — the episode script is compiled to bytecode (tools/tyrdata/
   script.py); original story text/picture/music commands now yield to the
-  presentation frontend; dropped for now: data cubes, ending animation,
+  presentation frontend; dropped for now: ending animation,
   galaga/extra modes (level 1.18 "ALE" never ends without
   galaga mode), two-player branches. Death
   replays the level with the items it started with (the PC reloads its
@@ -250,6 +249,17 @@ Every intentional difference from OpenTyrian, one line each:
   six pixels to eight and share one flashing red; siren spacing follows the PC
   timer. C skips subsequent text until ]n; B/A/START advances. Story commands do
   not advance simulation or RNG. Shops retain the selected picture beneath menus.
+- Datacubes — original ]? / ]! / ]+ availability, all source records and 12
+  FACE_SHAPES portraits, 35-character/150-pixel word wrapping, paragraph gaps,
+  90-line cap and nine visible lines — shared ROM tiles and two VRAM pages
+  replace the PC framebuffer — five 32x8 sprites per line preserve original
+  12-pixel spacing; scrolling advances whole lines, L/R switches collected
+  cubes, highlight brightness becomes yellow and portraits use a black reading
+  screen with a different left-column layout. The shop's Data row opens it; the reader retains the PC percentage-read counter.
+  Only 48 tile DMAs are queued per vblank, with the previous page visible until
+  all new tiles arrive. Invisible black shadow texels share transparency on
+  the guaranteed black backdrop. Passwords save pre-command lastCubeMax as
+  JE_saveGame does, so reloading never reapplies ]+ to an already raised count.
 - Difficulty — six original story choices are directly visible on the pad menu
   instead of hiding the last three behind keyboard codes; enemy armor/value
   multipliers and score-based increases follow OpenTyrian, precomputed with
@@ -350,7 +360,7 @@ Fill and keep current.
     sprite piece of the level), shot collision lists ~300.
   - total .bss depends on the episode: episode 1 34,372 bytes; episode 2
     34,980; episode 3 34,364; episode 4 30,124 (historical separate builds).
-    Unified cartridge with sidekicks: .bss 44,116 bytes + .data 90; active table pointers
+    Unified cartridge with sidekicks: .bss 44,848 bytes + .data 90; active table pointers
     185 bytes, two campaign-state bytes, dynamic sprite-slot count 2 bytes,
     PAL sprite velocity scale 2 bytes; HUD text uses a 32-bit tick deadline.
     `Player`: 20 pairs of 16-bit history coordinates, two 20-byte companion
@@ -361,9 +371,9 @@ Fill and keep current.
     bytes; rendered scroll: 4 bytes; Astral flag: 1 byte; Plane B mirror:
     4,096 bytes; star rotation: 2 bytes.
     SGDK DMA heap allocations: 9,476 bytes including block headers (8 KB
-    copy buffer and 80 x 16-byte queue); measured heap free: 9,292 bytes,
+    copy buffer and 80 x 16-byte queue); measured heap free: 8,560 bytes,
     with the 0xA00 stack reserve separate. BSS + data + allocated heap +
-    reserved stack: 56,242 of 65,536 bytes.
+    reserved stack: 56,974 of 65,536 bytes.
     Filter simulation: 9 bytes; CRAM output: 128 bytes + 2-byte last-color key.
     Special runtime: 20 bytes (three combo positions and queued execution included); special HUD cache: 2 bytes; replay special ID: 1 byte.
     Sidekick HUD state cache: 4 bytes; pause message pointer: 4 bytes;
@@ -377,7 +387,12 @@ Fill and keep current.
   - Story presentation adds a 4-byte picture pointer, one scene-skip latch and
     two benchmark bytes (8 bytes including alignment); no framebuffer or heap
     allocation. Immediate map upload uses one 80-byte stack row; picture fades
-    use 128 temporary bytes. Heap free is now 9,292 bytes, stack reserve separate.
+    use 128 temporary bytes. Heap free is now 8,560 bytes, stack reserve separate.
+  - Datacube cache: 2 x 180 tile IDs = 720 bytes; script cube IDs: 4 bytes;
+    pre-command checkpoint cube count: 2 bytes; reader benchmark flag: 1 byte.
+    Total BSS growth is 732 bytes including alignment. Cube text is never copied
+    into RAM; headers use an 81-byte local title buffer. Selected reader/scroll
+    benchmarks reach 1,288 stack bytes, below the 0xA00 reserve.
 - VRAM map: (region — tiles/bytes)
   - tiles 0-15 SGDK system; 16.. background slot pool, sized per level by
     `BG_POOL_NEED` (684 for 1.9: worst 30-row window, both layers); then free
@@ -394,11 +409,16 @@ Fill and keep current.
     before play. Shops keep 192 menu-font tiles and load the image at 208,
     ending at most at 1,241. Conversion asserts both limits. DMA occurs during
     loading with display off; no extra gameplay streaming.
+  - Datacube reader replaces gameplay VRAM: menu font 16..207, two 180-tile
+    text pages at 208..567, face 568..630. Nine lines use 45 hardware sprites,
+    five / 160 pixels per scanline; no gameplay objects share the screen.
 - Entity caps: enemies 100, enemy shots 60, player shots 64, explosions 64.
-- ROM: unified cartridge (2026-10-21): fixed .text 3,475,968 bytes,
+- ROM: unified cartridge (2026-10-21): fixed .text 3,618,048 bytes,
   initial .data 90; far graphics and extra option/weapon frames bring the used physical ROM
-  end to 7,647,488 bytes, padded to 8 MB (87%). Password codec/UI add ~5.9 KB of code/tables. The fixed region still has 193,958 bytes
-  of headroom. The shipped SGDK math source is
+  end to 7,874,496 bytes, padded to 8 MB (93%). Password codec/UI add ~5.9 KB of code/tables. The fixed region still has 51,878 bytes
+  of headroom. Datacubes add 133,684 bytes of fixed packed line maps/references
+  and 227,008 bytes of far glyph/portrait graphics; 6,338 shared text tiles use
+  13-bit IDs. The shipped SGDK math source is
   recompiled with function sections (read-only include); garbage collection
   removes ~393 KB of unused log/sqrt tables and other unused math routines.
   Further code/tables still need measured budgets. Shared episode 1–3 item tables
@@ -511,7 +531,7 @@ Fill and keep current.
   Two ten-bomb, eight equipped-special and two ship-combo replays also run
   in both regions. Special hashes include combo progress, queued execution,
   cooldowns and effect state; player hashes include invulnerability ticks.
-  Global filter state/fade phases and all 100 stars are also hashed. Star
+  Global filter state/fade phases and all 100 stars and collected-cube counts are also hashed. Star
   tests cover every 16-bit position quotient/remainder, initialization RNG
   consumption, wrap-around, disabled stars and Astral override. Converter tests verify
   deterministic inverse color matching; C tests cover brightness overflow and
@@ -525,6 +545,14 @@ Fill and keep current.
   stack bytes, 9,292 free heap bytes and peaks at 2,308 gameplay DMA bytes.
   Python checks every original page, proportional bounds and byte-identical
   conversion. Text glow and the picture pan remain documented adaptations.
+  Datacube replays scroll and switch the initial collection of every episode
+  before checking unchanged opening goldens in PAL/NTSC (`make parity-cubes`).
+  The runner aborts above 7 KB of reader DMA; selected NTSC episode 4 and PAL
+  episode 1 runs peak at 3,390 and 4,254 bytes respectively, with 1,288-byte
+  stacks. Host tests walk shop checkpoints with a collected cube, reload their
+  passwords and verify the same collection (no duplicated scripted awards).
+  Converter tests cover every referenced cube, exact paragraph/word bounds,
+  highlight pixels, packed IDs at every alignment and deterministic output.
   Converter unit tests (Python) join tier 0 from stage 2. The runner sets
   `debug_hold_level` at the first tick: death/end does not restart or leave
   the level during a fixed-length replay, matching the host. The default

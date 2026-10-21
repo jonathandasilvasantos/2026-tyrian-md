@@ -933,6 +933,8 @@ def main():
     gen_title(out)
     from tyrdata.story import generate as gen_story
     gen_story(out, tiles_column_major)
+    from tyrdata.cubes import generate as gen_cubes
+    gen_cubes(out, tiles_column_major)
     res = gen_sounds(out, "res")
     # music: VGMs from tools/music_vgm.py (make music) copied to res/music
     songs = sorted(f for f in os.listdir(os.path.join("res", "music")) if f.endswith(".vgm")) \
