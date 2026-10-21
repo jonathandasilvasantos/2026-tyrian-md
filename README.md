@@ -15,7 +15,8 @@ scripts, shops and destination choice, enemies and level events, front/rear
 weapons, superbombs and asteroid-killer pickups, the 30 sidekicks (shop, movement, charge/ammo, HUD), generator power, HUD, the 41 songs converted to YM2612/PSG, sound
 effects and voices. Story starting funds follow the original episode; episode 4 also applies
 the original difficulty reduction. Six story difficulty choices, enemy scaling,
-score-based difficulty progression and START pause are implemented.
+score-based difficulty progression, START pause and shop checkpoint passwords
+are implemented.
 
 Validation covers script references for every episode, host unit tests and
 600-tick ROM/host replays at each episode's opening level on both NTSC and
@@ -23,7 +24,7 @@ PAL. Both regions run the same 35 Hz simulation. Full campaigns,
 visual accuracy and hardware timing still need validation; dense scenes can
 slow down. See `agents.md` §8 for deviations and §9 for budgets.
 
-Still required: saves, text screens and data cubes, special weapons, the third
+Still required: text screens and data cubes, special weapons, the third
 (top) background layer, and the remaining OpenTyrian modes/features. The
 ROM uses the official Sega SSF2 mapper; code, tables and audio stay in the
 fixed lower 3.5 MB, while DMA maps graphics through the upper 512 KB.
@@ -59,7 +60,11 @@ changes rear weapon mode, A fires the left limited-ammo sidekick, and Z
 fires the right one on a 6-button pad. On a 3-button pad A fires both
 limited-ammo sidekicks. Z (A on a 3-button pad) launches/recalls the right
 front-mounted attachment. A/Z also release held superbombs; START pauses
-and resumes. The old weapon/power debug shortcuts are removed.
+and resumes. C in the shop displays a checkpoint password; select
+Continue on the title menu to enter it (L/R cursor, up/down symbol, B next,
+A/START load, C cancel). The 48-character code stores equipment, cash,
+difficulty and episode progress, with a checksum for transcription errors.
+The old weapon/power debug shortcuts are removed.
 
 ## Layout
 

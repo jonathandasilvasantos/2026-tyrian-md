@@ -28,7 +28,7 @@ BENCH_TICKS ?= 600
 REPLAY      ?= test/replays/boot.txt
 MUSASHI_REV := 313ebf1bd9f4d0d93341eb5ce21fd8a119e9dbdd
 
-.PHONY: all music setup-sgdk gen rom rom-demo host unit-test py-test test bench-68k parity parity-episodes parity-sidekicks parity-pal clean
+.PHONY: all music setup-sgdk gen rom rom-demo host unit-test py-test test bench-68k parity parity-episodes parity-sidekicks parity-checkpoint parity-pal clean
 
 all: rom
 
@@ -101,9 +101,14 @@ out/test_game: test/test_game.c $(GAME_SRCS) $(GAME_HDRS) Makefile
 	@mkdir -p out
 	$(CC) $(HOST_CFLAGS) test/test_game.c $(GAME_SRCS) -o $@
 
+out/test_password: test/test_password.c $(GAME_SRCS) $(GAME_HDRS) Makefile
+	@mkdir -p out
+	$(CC) $(HOST_CFLAGS) test/test_password.c $(GAME_SRCS) -o $@
+
 unit-test: gen
-	@$(MAKE) --no-print-directory out/test_game
+	@$(MAKE) --no-print-directory out/test_game out/test_password
 	@./out/test_game
+	@./out/test_password
 
 # ── 68000 runner (Musashi) ───────────────────────────────────────────────────
 out/musashi/m68kops.c:
@@ -164,13 +169,17 @@ parity-sidekicks: out/bench68k out/rom.syms out/tyrian_host
 	@python3 tools/check_replays.py test/replays/sidekicks.hashes test/replays/sidekicks.txt
 	@python3 tools/check_replays.py test/replays/bombs.hashes test/replays/sidekicks.txt
 
+parity-checkpoint:
+	@B68K_CHECKPOINT=1 $(MAKE) --no-print-directory parity-episodes
+
 parity-pal: out/bench68k out/rom.syms out/tyrian_host
 	@echo "   PAL replay checks"
-	@B68K_PAL=1 $(MAKE) --no-print-directory parity-episodes parity-sidekicks
+	@B68K_PAL=1 $(MAKE) --no-print-directory parity-episodes parity-sidekicks parity-checkpoint
 
 test: rom
-	@$(MAKE) --no-print-directory py-test out/test_game parity-episodes parity-sidekicks parity-pal
+	@$(MAKE) --no-print-directory py-test out/test_game out/test_password parity-episodes parity-sidekicks parity-checkpoint parity-pal
 	@./out/test_game
+	@./out/test_password
 
 clean:
 	@rm -rf out

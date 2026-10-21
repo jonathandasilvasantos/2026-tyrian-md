@@ -6,6 +6,7 @@
 #include "game/episode.h"
 #include "game/timing.h"
 #include "game/player.h"
+#include "game/password.h"
 #include "game/script.h"
 #include "gen_data/script.h"
 #include "gen_data/episodes.h"
@@ -35,7 +36,7 @@ volatile u8 debug_level;
 volatile u8 debug_episode;
 volatile u8 debug_loadout, debug_left_option, debug_right_option, debug_bombs;
 /* Headless runner compares a fixed number of ticks, including after death. */
-volatile u8 debug_hold_level;
+volatile u8 debug_hold_level, debug_checkpoint;
 
 /* game_tick: one simulation step.  Kept as a real function (noinline) so
  * tools/bench68k can count ticks and feed replay pads by its address. */
@@ -79,6 +80,14 @@ static u8 play_level(const FlowStep *st)
         players[0].option_id[1] = debug_right_option <= OPTION_NUM ? debug_right_option : 0;
     }
     game_start_level(st->level);
+    if (debug_checkpoint) {
+        char code[PASSWORD_LENGTH + 1];
+        /* Tier-0 target codec check: compare the restored opening against
+         * the independent host simulation and existing replay goldens. */
+        password_encode(code);
+        if (!password_load(code)) SYS_die("Checkpoint validation failed");
+        game_start_level(st->level);
+    }
     if (debug_bombs) players[0].superbombs = debug_bombs <= 10 ? debug_bombs : 10;
     level_screen_setup(level_names[st->name]);
     sound_music(st->song);
@@ -125,16 +134,23 @@ int main(bool hard)
     sound_init();
     game_new(debug_episode ? debug_episode : LEVEL_DEFAULT_EPISODE, DIFFICULTY_NORMAL);
     if (!debug_level && !debug_episode) {
-        u8 episode = 0, difficulty = 0;
-        do {
+        for (;;) {
+            u8 episode = 0, difficulty = 0;
             title_screen();
+            if (start_screen()) {
+                if (password_screen()) break;
+                continue;
+            }
             do {
                 episode = episode_screen();
                 if (!episode) break;
                 difficulty = difficulty_screen();
             } while (!difficulty);
-        } while (!episode);
-        game_new(episode, difficulty);
+            if (episode) {
+                game_new(episode, difficulty);
+                break;
+            }
+        }
     }
     if (debug_level) {    /* benchmark entry: one level, replayed forever */
         FlowStep st = { FLOW_LEVEL, (u8)(debug_level - 1), 0, 0, 0, 0, 0 };

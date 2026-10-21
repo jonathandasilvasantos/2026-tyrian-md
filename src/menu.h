@@ -15,6 +15,9 @@ u8 episode_screen(void);
 u8 difficulty_screen(void);
 void pause_screen(void);
 const char *episode_name(u8 episode);
+u8 start_screen(void);             /* 0 new game, 1 continue */
+u8 password_screen(void);          /* load a validated checkpoint, C cancels */
+void password_show(void);          /* display the current shop checkpoint */
 void title_screen(void);           /* Tyrian MD + credits, waits for START */
 
 #endif

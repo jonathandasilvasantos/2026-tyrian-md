@@ -125,8 +125,8 @@ what changed, why, worst-case visible difference. Approved directions:
   PSG for simple blips. Sample rates reduced to fit ROM.
 - **Scope**: all episodes and features present in OpenTyrian are the target
   (user request, 2026-10-21). Start with episodes 1–4 from Tyrian 2.1 data;
-  specials, saves, text screens and the third background layer remain
-  required; sidekicks and all four episode flows are implemented. Two-player mode, Destruct, networking, jukebox and
+  specials, text screens and the third background layer remain
+  required; shop checkpoints use passwords; sidekicks and all four episode flows are implemented. Two-player mode, Destruct, networking, jukebox and
   setup/config screens come later. Additional data-dependent content needs
   its original data source; do not invent missing content.
 - **Saves**: battery SRAM is allowed only if it does not shadow ROM data;
@@ -233,14 +233,20 @@ Every intentional difference from OpenTyrian, one line each:
   data cubes, galaga/extra modes (level 1.18 "ALE" never ends without
   galaga mode), two-player branches. Death
   replays the level with the items it started with (the PC reloads its
-  level-start save). No saves across power-off yet (SRAM vs password still
-  to decide).
+  level-start save). Shop passwords preserve progress across power-off.
 - Difficulty — six original story choices are directly visible on the pad menu
   instead of hiding the last three behind keyboard codes; enemy armor/value
   multipliers and score-based increases follow OpenTyrian, precomputed with
   float32 in the converter — avoid floating point at runtime — no gameplay
   rule difference. Temporary event changes reset at level boundaries; episode
   4 retains its one-step reduction.
+- Saves — versioned 48-character base32 passwords at shops, CRC16-CCITT
+  validation before replacing state, section checkpoint matching JE_saveGame;
+  equipment, cash, chosen/current difficulty, episode history and RNG preserved —
+  SSF2 ROM occupies the usual SRAM address range — manual transcription replaces
+  disk slots/automatic backups. Title menu offers Continue; C in a shop shows
+  the password. Level-local bombs, health and shot cooldowns reset on entry, as
+  on PC. The format reserves a byte for special equipment still to be ported.
 - Pause — START freezes simulation and halves music volume, START resumes;
   the pause banner uses the HUD bottom bar instead of the PC center — preserve
   the playfield without reserving extra tiles — different banner position.
@@ -312,8 +318,10 @@ Fill and keep current.
     instead of a large stack local (Player and checkpoint: 202 bytes each).
     Sidekick HUD state cache: 4 bytes; pause message pointer: 4 bytes;
     campaign difficulty baseline: 1 byte (plus alignment);
-    replay loadout controls: 4 bytes; superbomb HUD cache: 1 byte.
-    Normal boot uses 1,492 stack bytes, below the 0xA00 reserve (2026-10-21).
+    replay loadout controls: 4 bytes; checkpoint replay flag: 1 byte (fits alignment); superbomb HUD cache: 1 byte.
+    Password conversion uses a 30-byte local record and a 49-byte menu/replay
+    text buffer; no persistent save buffer. Checkpoint replay reaches 1,284 stack
+    bytes. Normal boot previously used 1,492 stack bytes, below the 0xA00 reserve (2026-10-21).
   - `sprites.c` piece cache — up to 88 slots x 4 bytes (48 for episode 2);
     `debug_hold_level` — 1 byte for headless replay flow control.
 - VRAM map: (region — tiles/bytes)
@@ -329,7 +337,7 @@ Fill and keep current.
 - Entity caps: enemies 100, enemy shots 60, player shots 64, explosions 64.
 - ROM: unified cartridge (2026-10-21): fixed .text ~3.24 MB,
   initial .data 90; far graphics and extra option/weapon frames bring the used physical ROM
-  end to 7,283,609 bytes, padded to 8 MB (86%). The fixed region still has ~400 KB
+  end to 7,283,609 bytes, padded to 8 MB (86%). Password codec/UI add ~5.9 KB of code/tables. The fixed region still has ~348 KB
   of headroom. The shipped SGDK math source is
   recompiled with function sections (read-only include); garbage collection
   removes ~393 KB of unused log/sqrt tables and other unused math routines.
@@ -421,7 +429,10 @@ Fill and keep current.
   Plasma Storm loadout for large projectile artwork/collision; `game_hash`
   includes superbomb stock/cooldown and charge, ammo, movement history, orbit and attachment state when
   sidekicks are equipped.
-  Two ten-bomb replays also run in both regions.
+  Two ten-bomb replays also run in both regions. Checkpoint replays on the
+  68000 encode/load the opening state of each episode, then must match the
+  independent host and existing goldens in both regions. Host checkpoint tests
+  cover every symbol position for transcription rejection without state changes.
   Converter unit tests (Python) join tier 0 from stage 2. The runner sets
   `debug_hold_level` at the first tick: death/end does not restart or leave
   the level during a fixed-length replay, matching the host. The default
@@ -459,7 +470,7 @@ Write tests for behavior, not implementation; no duplicate tests.
 5. **Enemies + events** (done for one level: `src/game/enemy.c`,
    `level.c`; HUD values exist but are not drawn): level event interpreter, enemy movement/AI,
    collisions, explosions, items, score.
-6. **HUD + flow** (four episodes, sidekick shops; saves and text screens remain: `src/game/script.c`, `shop.c`, `src/menu.c`, `src/hud.c`):
+6. **HUD + flow** (four episodes, sidekick shops and password saves; text screens remain: `src/game/script.c`, `shop.c`, `src/menu.c`, `src/hud.c`):
    window-plane HUD, level end, shop/upgrade screen, episode progression,
    saves.
 7. **Audio** (done: `tools/lds_dump`, `tools/tyrdata/music.py`,

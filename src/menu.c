@@ -6,6 +6,7 @@
 #include "game/player.h"
 #include "game/script.h"
 #include "game/shop.h"
+#include "game/password.h"
 #include "gen_data/fonts.h"
 #include "gen_data/items.h"
 #include "gen_data/script.h"
@@ -196,6 +197,11 @@ u8 shop_screen(u8 shop_index)
         u16 e = menu_pad_edge();
         if (e & BUTTON_UP) { sel = sel ? sel - 1 : nrows; redraw = 1; }
         if (e & BUTTON_DOWN) { sel = sel < nrows ? sel + 1 : 0; redraw = 1; }
+        if (e & BUTTON_C) {
+            password_show();
+            menu_begin();
+            redraw = 1;
+        }
         if (sel == nrows && script.choices > 1 && (e & (BUTTON_LEFT | BUTTON_RIGHT))) {
             dest = (u8)((dest + (e & BUTTON_LEFT ? script.choices - 1 : 1)) % script.choices);
             redraw = 1;
@@ -231,6 +237,7 @@ u8 shop_screen(u8 shop_index)
             strcat(line, script.choices ? planet_names[script.choice_planet[dest] <= PLANET_COUNT ? script.choice_planet[dest] : 0] : "");
             if (script.choices > 1) strcat(line, "  (L/R)");
             menu_text(1, 4 + nrows, line, 38);
+            menu_text(1, 5 + nrows, "C: show password", 38);
         }
         menu_frame();
     }
@@ -366,4 +373,98 @@ void pause_screen(void)
     sound_pause(FALSE);
     hud_message(message);
     menu_frame();
+}
+
+/* Passwords replace battery SRAM: the SSF2 ROM occupies its usual address
+ * range. Use the same shop save-section checkpoint as JE_saveGame. */
+static void password_lines(const char *code, u8 cursor)
+{
+    u8 row, i;
+    char line[18], mark[18];
+    for (row = 0; row < 3; row++) {
+        for (i = 0; i < 17; i++) {
+            line[i] = i == 8 ? ' ' : code[row * 16 + i - (i > 8)];
+            mark[i] = ' ';
+        }
+        line[17] = mark[17] = 0;
+        if (cursor / 16 == row) {
+            i = cursor % 16;
+            mark[i + (i >= 8)] = '^';
+        }
+        menu_text(10, 4 + row * 2, line, 18);
+        menu_text(10, 5 + row * 2, mark, 18);
+    }
+}
+
+void password_show(void)
+{
+    char code[PASSWORD_LENGTH + 1];
+    password_encode(code);
+    menu_begin();
+    menu_text(2, 1, "SAVE THIS PASSWORD", 36);
+    password_lines(code, 255);
+    menu_text(2, 10, "Equipment, cash and checkpoint", 36);
+    menu_text(2, 12, "B / START / C: return", 36);
+    do { menu_frame(); } while (!(menu_pad_edge() & (BUTTON_A | BUTTON_B | BUTTON_C | BUTTON_START)));
+}
+
+u8 password_screen(void)
+{
+    char code[PASSWORD_LENGTH + 1];
+    u8 cursor = 0, redraw = 1, repeat = 0;
+    u16 last_direction = 0;
+    memset(code, password_alphabet[0], PASSWORD_LENGTH);
+    code[PASSWORD_LENGTH] = 0;
+    menu_begin();
+    for (;;) {
+        u16 edge = menu_pad_edge();
+        u16 direction = JOY_readJoypad(JOY_1) & (BUTTON_UP | BUTTON_DOWN | BUTTON_LEFT | BUTTON_RIGHT);
+        if (direction && direction == last_direction) {
+            if (++repeat >= 20) { edge |= direction; repeat = 16; }
+        } else repeat = 0;
+        last_direction = direction;
+        if (edge & BUTTON_C) return 0;
+        if (edge & BUTTON_LEFT) { cursor = cursor ? cursor - 1 : PASSWORD_LENGTH - 1; redraw = 1; }
+        if (edge & (BUTTON_RIGHT | BUTTON_B)) { cursor = cursor + 1 < PASSWORD_LENGTH ? cursor + 1 : 0; redraw = 1; }
+        if (edge & (BUTTON_UP | BUTTON_DOWN)) {
+            u8 value = 0;
+            while (password_alphabet[value] != code[cursor]) value++;
+            value = (value + (edge & BUTTON_UP ? 1 : 31)) & 31;
+            code[cursor] = password_alphabet[value];
+            redraw = 1;
+        }
+        if (edge & (BUTTON_A | BUTTON_START)) {
+            if (password_load(code)) return 1;
+            menu_text(2, 2, "Invalid password", 36);
+        }
+        if (redraw) {
+            redraw = 0;
+            menu_text(2, 1, "CONTINUE - PASSWORD", 36);
+            password_lines(code, cursor);
+            menu_text(2, 10, "L/R: cursor   UP/DOWN: symbol", 36);
+            menu_text(2, 11, "B: next   A/START: continue", 36);
+            menu_text(2, 12, "C: back", 36);
+        }
+        menu_frame();
+    }
+}
+
+u8 start_screen(void)
+{
+    u8 sel = 0, redraw = 1;
+#ifdef AUTOPLAY
+    return 0;
+#endif
+    menu_begin();
+    for (;;) {
+        u16 edge = menu_pad_edge();
+        if (edge & (BUTTON_UP | BUTTON_DOWN)) { sel ^= 1; redraw = 1; }
+        if (edge & (BUTTON_A | BUTTON_B | BUTTON_START)) return sel;
+        if (redraw) {
+            redraw = 0;
+            menu_text(2, 4, sel ? "  NEW GAME" : "* NEW GAME", 36);
+            menu_text(2, 6, sel ? "* CONTINUE - PASSWORD" : "  CONTINUE - PASSWORD", 36);
+        }
+        menu_frame();
+    }
 }

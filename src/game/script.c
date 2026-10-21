@@ -1,6 +1,6 @@
 /* script.c — episode script interpreter: runs a section's commands until
  * one needs the player (a level or a shop).  Text and picture screens are
- * not compiled in yet (agents.md §8); difficulty is Normal. */
+ * not compiled in yet (agents.md §8). */
 #include "script.h"
 #include "game.h"
 #include "player.h"
@@ -124,5 +124,7 @@ void script_level_done(uint8_t next_section, uint8_t died)
     if (!died) {
         game_level_complete();
         go_section(next_section);
+        /* JE_loadMap initializes saveLevel on entry, before internal jumps. */
+        script.save_section = script.section;
     }
 }
