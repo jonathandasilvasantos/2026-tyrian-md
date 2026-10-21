@@ -37,7 +37,7 @@ void game_init(void)
     game.initial_difficulty = DIFFICULTY_NORMAL;
     rng_seed(0x2545F491u);
     player_init();
-    game_start_level(GAME_FIRST_LEVEL);
+    game_start_level(LEVEL_FIRST);
 }
 
 /* One tick, in tyrian2.c:JE_main order. */

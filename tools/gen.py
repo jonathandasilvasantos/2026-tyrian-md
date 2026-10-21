@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """gen.py — convert tyrian-data/ into src/gen_data/ (agents.md §2).
 
-Usage: python3 tools/gen.py [out_dir]   (default src/gen_data)
+Usage: python3 tools/gen.py [out_dir] [--episode 1..4]   (default src/gen_data)
 Outputs are byte-identical for identical inputs.
 """
+import argparse
 import os
 import sys
 
@@ -13,7 +14,6 @@ import numpy as np  # noqa: E402
 from tyrdata import script as script_mod  # noqa: E402
 from tyrdata import data_path, emit, items, level, palette, quantize, raster, shapes  # noqa: E402
 
-EPISODE = 1                # converted episode (all its levels)
 BG_LAYERS = 2              # layer 3 (top) is not converted yet (agents.md §8)
 GAME_PALETTE = 5           # in-game PC palette (docs/data_formats.md §5)
 BG_WIN_ROWS = 30           # cell rows resident per layer (src/bg.c)
@@ -160,6 +160,7 @@ def gen_levels(out, ep, nums):
          "} LevelDef;\n"
          f"#define LEVEL_COUNT {len(nums)}\n"
          f"#define LEVEL_EPISODE {ep}\n"
+         f"#define LEVEL_FIRST {script_mod.first_level(ep)}\n"
          "extern const LevelDef levels[LEVEL_COUNT];\n#endif\n")
     c = emit.HEADER + '#include "level.h"\n'
     entries = []
@@ -356,10 +357,10 @@ def gen_title(out, art=os.path.join("res", "art", "title_md.png")):
     print(f"   gen: title: {len(cell_ids)} cells")
 
 
-def gen_items(out):
+def gen_items(out, episode=1):
     """Weapon, port, ship and generator tables (docs/data_formats.md §4) as
     portable C (src/game uses them on the ROM and on the host)."""
-    it = items.load_items(1)
+    it = items.load_items(episode)
     h = (emit.HEADER + "#ifndef GEN_ITEMS_H\n#define GEN_ITEMS_H\n#include \"game/types.h\"\n"
          "typedef struct {\n"
          "    uint8_t shotrepeat, multi, weapani, max, tx, ty, aim;\n"
@@ -738,13 +739,17 @@ def gen_sprites(out, it, lvls, bg_pals):
 
 
 def main():
-    out = sys.argv[1] if len(sys.argv) > 1 else os.path.join("src", "gen_data")
-    nums = list(range(1, level.level_count(EPISODE) + 1))
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("out_dir", nargs="?", default=os.path.join("src", "gen_data"))
+    parser.add_argument("--episode", type=int, choices=range(1, 5), default=1)
+    args = parser.parse_args()
+    out, episode = args.out_dir, args.episode
+    nums = list(range(1, level.level_count(episode) + 1))
     gen_palettes(out)
-    bgs = [gen_level_bg(EPISODE, n, i) for i, n in enumerate(nums)]
+    bgs = [gen_level_bg(episode, n, i) for i, n in enumerate(nums)]
     write_level_bgs(out, bgs)
-    gen_levels(out, EPISODE, nums)
-    gen_script(out, EPISODE)
+    gen_levels(out, episode, nums)
+    gen_script(out, episode)
     gen_fonts(out)
     gen_title(out)
     res = gen_sounds(out, "res")
@@ -756,7 +761,7 @@ def main():
     emit.write_if_changed(os.path.join("res", "resources.res"), res)
     emit.write_if_changed(os.path.join(out, "music.h"), emit.HEADER +
                           f"#ifndef GEN_MUSIC_H\n#define GEN_MUSIC_H\n#define MUSIC_TRACKS {len(songs)}\n#endif\n")
-    gen_sprites(out, gen_items(out), [level.load_level(EPISODE, n) for n in nums], [b["pals"] for b in bgs])
+    gen_sprites(out, gen_items(out, episode), [level.load_level(episode, n) for n in nums], [b["pals"] for b in bgs])
     print(f"   gen: {out}")
 
 

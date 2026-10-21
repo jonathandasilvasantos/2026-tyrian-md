@@ -23,6 +23,7 @@ JAVA_HEADLESS_TOOL_OPTIONS := -Djava.awt.headless=true
 GAME_SRCS := $(wildcard src/game/*.c) src/gen_data/items.c src/gen_data/level.c src/gen_data/script.c
 GAME_HDRS := $(wildcard src/game/*.h)
 
+EPISODE     ?= 1
 BENCH_TICKS ?= 600
 REPLAY      ?= test/replays/boot.txt
 MUSASHI_REV := 313ebf1bd9f4d0d93341eb5ce21fd8a119e9dbdd
@@ -55,7 +56,7 @@ gen:
 	@test -f tyrian-data/palette.dat || ./open-tyrian/get_data.sh tyrian-data
 	@test -f out/music/song_41.vgm || $(MAKE) --no-print-directory music
 	@mkdir -p res/music && cp -p out/music/song_*.vgm res/music/
-	@python3 tools/gen.py src/gen_data
+	@python3 tools/gen.py src/gen_data --episode $(EPISODE)
 
 # ── ROM ──────────────────────────────────────────────────────────────────────
 rom: gen
@@ -88,7 +89,8 @@ rom-demo:
 	@cp $(ROM) out/rom-demo.bin && rm -rf out/src out/.rom_stamp && echo "   demo: out/rom-demo.bin (run make rom again for the normal ROM)"
 
 # ── Host build ───────────────────────────────────────────────────────────────
-host: out/tyrian_host
+host: gen
+	@$(MAKE) --no-print-directory out/tyrian_host
 
 out/tyrian_host: platform/host/main.c $(GAME_SRCS) $(GAME_HDRS) src/gen_data/items.h
 	@mkdir -p out
@@ -98,7 +100,8 @@ out/test_game: test/test_game.c $(GAME_SRCS) $(GAME_HDRS)
 	@mkdir -p out
 	$(CC) $(HOST_CFLAGS) test/test_game.c $(GAME_SRCS) -o $@
 
-unit-test: out/test_game
+unit-test: gen
+	@$(MAKE) --no-print-directory out/test_game
 	@./out/test_game
 
 # ── 68000 runner (Musashi) ───────────────────────────────────────────────────
@@ -147,7 +150,9 @@ music: out/lds_dump
 py-test:
 	@python3 -m pytest -q test/tools
 
-test: py-test unit-test rom parity
+test: rom
+	@$(MAKE) --no-print-directory py-test out/test_game parity
+	@./out/test_game
 
 clean:
 	@rm -rf out

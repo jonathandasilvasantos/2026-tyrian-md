@@ -2,7 +2,7 @@
 
 Single source of project rules for humans and coding agents. Read it before
 changing anything. Goal: a **full-speed, 60 Hz Tyrian on stock Genesis
-hardware** (no Sega CD, no 32X, no mapper beyond what a 4 MB cart allows) that
+hardware** (no Sega CD, no 32X, cartridge up to 64 Mbit / 8 MB, with mapper if needed) that
 feels like Tyrian, not a demake. We adapt aggressively wherever the PC design
 does not fit the machine, and we say so in code and in this file.
 
@@ -32,7 +32,7 @@ not its game code. Toolchain: `m68k-elf-gcc` (Homebrew), `GDK=./sgdk`.
 | RAM | MBs | 64 KB work RAM (+ 8 KB Z80 RAM) |
 | Video | 320×200, 256 colors, linear framebuffer, software blits | 320×224 (H40), 4 palettes × 15 colors + transparent, tiles 8×8, 2 scroll planes + window, 80 sprites / 20 per line, 64 KB VRAM |
 | Audio | AdLib OPL2 (LDS/Loudness songs) + 8-bit PCM SFX | YM2612 (6 FM ch, OPN2) + SN76489 PSG (3 square + noise), Z80 driver, PCM on ch6 |
-| Storage | ~11 MB of data files | 4 MB ROM, 0x000000–0x3FFFFF only |
+| Storage | ~11 MB of data files | Up to 8 MB ROM; current builds use 4 MB linear space |
 | Input | keyboard/mouse/joystick | 3/6-button pad |
 
 Engine entry points to study in `open-tyrian/src/`: `tyrian2.c` (main loop,
@@ -72,7 +72,10 @@ PC file formats. Rules:
   moment of every level. Budget per frame ≈ 120k cycles for game logic +
   VDP setup; measure, don't assume. PAL (50 Hz) must play at the same game
   speed (fixed timestep at 60, or scaled velocities — pick one, document it).
-- **ROM**: ≤ 4 MB, fail the build above. Everything in 0x000000–0x3FFFFF.
+- **ROM**: up to 64 Mbit (8 MB), authorized by the user on 2026-10-21.
+  Current builds still enforce 4 MB at 0x000000–0x3FFFFF. Before exceeding
+  that, implement cartridge mapping, Z80 audio bank access and matching
+  emulator checks; changing the size check alone is insufficient.
 - **RAM**: 64 KB total. Keep a budget table in this file (§9) and update it
   with every new runtime structure. SGDK stack reserve is small (≈0xA00):
   no large locals, no recursion.
@@ -118,9 +121,12 @@ what changed, why, worst-case visible difference. Approved directions:
   mapped to OPN2 4-op patches; a hand-tuned patch table is acceptable) with
   the Z80 driver (XGM2 or a custom driver). SFX: PCM on the Z80 / FM ch6,
   PSG for simple blips. Sample rates reduced to fit ROM.
-- **Scope**: Episodes 1–4 (Tyrian 2.1 data) are the target. The 2-player
-  mode, Destruct mini-game, networking, jukebox, setup/config screens are
-  optional and come last. Text-heavy data cubes may be abridged to fit ROM.
+- **Scope**: all episodes and features present in OpenTyrian are the target
+  (user request, 2026-10-21). Start with episodes 1–4 from Tyrian 2.1 data;
+  sidekicks, specials, saves, text screens and the third background layer
+  remain required. Two-player mode, Destruct, networking, jukebox and
+  setup/config screens come later. Additional data-dependent content needs
+  its original data source; do not invent missing content.
 - **Saves**: battery SRAM is allowed only if it does not shadow ROM data;
   otherwise passwords. Decide once, document in §8.
 
@@ -229,6 +235,15 @@ Every intentional difference from OpenTyrian, one line each:
   converted by gen_title), credits: Mega Drive version by Jonathan Santos,
   Jason Emery, Daniel Cook, Alexander Brandon, Andreas Molnar, Epic
   MegaGames. SMALL_FONT's 12-px M/W are squeezed to 8 px.
+- Sprite cache — keep 20 big-enemy slots and fit up to 88 small-piece
+  slots into VRAM left by the selected episode (48 for episode 2) — its
+  backgrounds need 951 resident tiles — extra distinct pieces can be
+  omitted during a cache-saturated rebuild; ship/enemy bullets keep draw
+  priority. Simulation and collision caps are unchanged.
+- Episode packaging — one selected episode per ROM (`make rom EPISODE=1..4`)
+  while combined cartridge mapping is pending — reuse the existing engine
+  and test each episode independently — no in-game episode selection or
+  transition to the next episode yet.
 - Backgrounds — layer 3 (top) not drawn yet; layers are 336 px wide and are
   centered (8 px cut each side) instead of following the player's X — PC
   shows 264 px of them.
@@ -246,17 +261,19 @@ Fill and keep current.
   - `enemy_shots` 1,440, `explosions` 1,024, `gfx_slot` 2,032 (one byte per
     sprite piece of the level), shot collision lists ~300.
   - total .bss 38 KB of 64 KB (2026-10-18); deepest stack 1,248 bytes.
-  - `sprites.c` shot cache — 48 slots x 4 bytes + 206 bytes.
+  - `sprites.c` piece cache — up to 88 slots x 4 bytes (48 for episode 2);
+    `debug_hold_level` — 1 byte for headless replay flow control.
 - VRAM map: (region — tiles/bytes)
   - tiles 0-15 SGDK system; 16.. background slot pool, sized per level by
     `BG_POOL_NEED` (684 for 1.9: worst 30-row window, both layers); then free
-    for sprites: ship 12 tiles, piece cache 96 x 4 = 384 tiles, big-enemy
+    for sprites: ship 12 tiles, piece cache up to 88 x 4 = 352 tiles, big-enemy
     cache 20 x 12 = 240 tiles (`SPRITES_VRAM_TILES`); HUD bars 28 tiles;
     the HUD font replaces SGDK's font (96 tiles below 0xC000). Pool sized by
-    the worst level (`BG_POOL_NEED` 743, level 1.17); main.c has a
+    the selected episode (episode 1: 743; episode 2: 951; episode 3: 691;
+    episode 4: 645); the small-piece cache shrinks to fit. main.c has a
     `_Static_assert` on the total (1440) and the tilemaps at 0xC000 (SGDK
     defaults: plane B 0xC000, window 0xD000, plane A 0xE000, sprites 0xF800).
-- Entity caps: enemies ?, enemy shots ?, player shots ?, explosions ?
+- Entity caps: enemies 100, enemy shots 60, player shots 64, explosions 64.
 - ROM: code ?, graphics ?, levels ?, music ?, SFX ?, text ?
   - episode 1 complete (18 levels, sprites of its 17 banks, script, shop,
     fonts): 2.82 MB; + 38 sound effects/voices (XGM2 PCM) 0.40 MB = 3.23 MB
@@ -310,7 +327,11 @@ Fill and keep current.
   reach the same `frame_hash` as `out/tyrian_host` on `test/replays/boot.txt`
   (`BENCH_TICKS`, `REPLAY` override). bench68k also aborts on CPU
   exceptions, reads past 4 MB and stack beyond SGDK's 0xA00 reserve.
-  Converter unit tests (Python) join tier 0 from stage 2.
+  Converter unit tests (Python) join tier 0 from stage 2. The runner sets
+  `debug_hold_level` at the first tick: death/end does not restart or leave
+  the level during a fixed-length replay, matching the host. Normal game
+  flow is unchanged. Performance results after death must be interpreted
+  accordingly (no live-player restart).
 - **Setup (once)**: `make setup-sgdk` strips LTO IR from `sgdk/lib/libmd.a`
   and LTO flags from `sgdk/makefile.gen` (GCC 15 rejects SGDK 2.00's LTO).
 - **Hooks the tools rely on** (do not rename): `game_tick(u16 pad)` stays

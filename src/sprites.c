@@ -24,8 +24,8 @@
 
 #define SPR_MAX 80
 #define SPR_BUSY 24               /* sprites from which the list is rebuilt every other frame */
-#define GFX_SLOTS 88             /* x 4 tiles */
-#define BIG_SLOTS 20             /* x 12 tiles: composed 2x2 enemies */
+#define GFX_SLOTS SPRITES_PIECE_SLOTS /* x 4 tiles; fits this episode */
+#define BIG_SLOTS SPRITES_BIG_SLOTS /* x 12 tiles: composed 2x2 enemies */
 /* PC playfield (24..287 x 0..183) -> screen 8..271 x 24..207; the rest is
  * the HUD frame (window plane).  bg.c uses the same offsets. */
 #define SX_OFF (-16)

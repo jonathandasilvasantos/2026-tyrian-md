@@ -111,3 +111,11 @@ def compile_script(episode):
         # ]2 (two-player jump) never taken; W P M U V R C B F A g x e ? ! + @ S n: screens/extras
     ops += bytes([OP_END])
     return bytes(ops), sections, shops, names
+
+
+def first_level(episode):
+    """Default replay level, zero-based; the first ]L in the episode script."""
+    for line in load_script(episode):
+        if line.startswith("]L"):
+            return atoi(line[25:]) - 1
+    raise ValueError(f"episode {episode} has no level command")

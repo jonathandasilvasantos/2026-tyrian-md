@@ -93,9 +93,6 @@ typedef struct {
 
 extern GameState game;
 
-/* first level of a new game until the episode script runs (lvlFileNum 9) */
-#define GAME_FIRST_LEVEL 8
-
 void game_init(void);                   /* new game: player items + first level */
 void game_start_level(uint8_t level);   /* keep player items */
 void game_step(uint16_t pad);   /* one 35 Hz tick */

@@ -12,7 +12,8 @@
  *               same format and bits as platform/host (SGDK BUTTON_*).
  *               The pad is written into game_tick's argument on entry, so
  *               the simulation sees exactly the host's inputs whatever the
- *               boot timing.
+ *               boot timing. Level transitions/restarts are held during
+ *               the replay, matching the host even after death.
  * Output ends with "ticks N hash XXXXXXXX" (the ROM's frame_hash), directly
  * comparable with the host build's "frames N hash XXXXXXXX".
  *
@@ -48,7 +49,7 @@ static Sym *syms; static int nsyms;
 static uint32_t idle_lo[16], idle_hi[16]; static int nidle;
 static uint32_t prev_pc; static uint64_t prev_cyc, frame_idle;
 static uint32_t hash_on_addr, level_addr; static int force_level;
-static uint32_t tick_addr, hash_addr, crash_lo, crash_hi, die_addr;
+static uint32_t tick_addr, hash_addr, crash_lo, crash_hi, die_addr, hold_level_addr;
 static uint64_t ticks, want; static unsigned last_tick_frame;
 static uint32_t hf_lo, hf_hi; static uint64_t *hf_cyc;
 static int prof_on = 1;
@@ -111,6 +112,7 @@ void bench_instr_hook(unsigned int pc) {
     }
     if (pc == tick_addr) {
         it_ticked = 1;
+        if (hold_level_addr) wr8(hold_level_addr, 1);
         /* game_tick(u16 pad): int-promoted stack argument, low word at sp+6 */
         while (ci < ncmd && cmds[ci].tick <= ticks) pad = cmds[ci++].pad;
         /* hashing is off in normal runs; switch it on before the last tick
@@ -190,6 +192,7 @@ static void load_syms(const char *path) {
         unsigned addr; char t, name[64];
         if (sscanf(line, "%x %c %63s", &addr, &t, name) != 3) continue;
         if (!strcmp(name, "frame_hash")) hash_addr = addr;
+        if (!strcmp(name, "debug_hold_level")) hold_level_addr = addr;
         if (!strcmp(name, "hash_enabled")) hash_on_addr = addr;
         if (!strcmp(name, "debug_level")) level_addr = addr;
         if ((t == 'T' || t == 't') && addr < 0x800000) { syms[nsyms].addr = addr; strcpy(syms[nsyms].name, name); nsyms++; }

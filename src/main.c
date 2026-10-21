@@ -26,6 +26,8 @@ volatile u32 frame_hash;
 volatile u8 hash_enabled;
 /* set by tools/bench68k (B68K_LEVEL): play this level (1-based) directly */
 volatile u8 debug_level;
+/* Headless runner compares a fixed number of ticks, including after death. */
+volatile u8 debug_hold_level;
 
 /* game_tick: one simulation step.  Kept as a real function (noinline) so
  * tools/bench68k can count ticks and feed replay pads by its address. */
@@ -78,6 +80,7 @@ static u8 play_level(const FlowStep *st)
             hud_update();
         }
         SYS_doVBlankProcess();
+        if (debug_hold_level) continue;
         if (game.really_end_level) return 0;
         if (!players[0].is_alive && players[0].exploding_ticks == 0) return 1;
     }
