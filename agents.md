@@ -284,10 +284,12 @@ Fill and keep current.
     `_Static_assert` on the total (1440) and the tilemaps at 0xC000 (SGDK
     defaults: plane B 0xC000, window 0xD000, plane A 0xE000, sprites 0xF800).
 - Entity caps: enemies 100, enemy shots 60, player shots 64, explosions 64.
-- ROM: unified cartridge (2026-10-21): fixed .text 3,641,856 bytes,
+- ROM: unified cartridge (2026-10-21): fixed .text 3,239,168 bytes,
   initial .data 90; far graphics 3,487,232; physical end 0x6D3600 (~7.16 MB),
-  padded to 8 MB (85%). Fixed-region headroom is only ~27 KB; further
-  code/tables need deduplication/compression. Shared episode 1–3 item tables
+  padded to 8 MB (85%). Fixed-region headroom is ~420 KB. The shipped SGDK math source is
+  recompiled with function sections (read-only include); garbage collection
+  removes ~393 KB of unused log/sqrt tables and other unused math routines.
+  Further code/tables still need measured budgets. Shared episode 1–3 item tables
   are emitted once. Audio stays fixed, including the Z80's ROM accesses.
   - separate-episode builds (2026-10-21): episode 1 ~3.16 MB, episode 2
     ~2.75 MB, episode 3 ~2.90 MB, episode 4 ~2.95 MB; each is padded to 4 MB. These are opening
