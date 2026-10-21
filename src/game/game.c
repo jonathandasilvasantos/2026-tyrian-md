@@ -3,6 +3,7 @@
 #include "player.h"
 #include "special.h"
 #include "filter.h"
+#include "stars.h"
 #include "shots.h"
 #include "enemy.h"
 #include "level.h"
@@ -25,6 +26,7 @@ void game_start_level(uint8_t lv)
     game.old_map_x_ofs = game.old_map_x3_ofs = 0;
     level_init();
     filter_init();
+    stars_reset();
     enemies_init();
     player_start_level();
     shots_init();
@@ -66,8 +68,10 @@ void game_step(uint16_t pad)
         game.enemy_on_screen = 0;
     }
 
+    stars_begin();
     level_run_events();
     level_scroll_1();
+    stars_update();
     level_scroll_2();     /* layer 2 moves wherever background2over draws it */
 
     /* ground enemies */
@@ -186,6 +190,14 @@ uint32_t game_hash(void)
         (uint32_t)(uint8_t)filter_state.next_hue << 16 | (uint32_t)(uint8_t)filter_state.delta << 24);
     h = mix(h, filter_state.active | filter_state.fade << 1 | filter_state.fade_start << 2 |
         (uint32_t)(uint8_t)filter_state.draw_hue << 8 | (uint32_t)(uint8_t)filter_state.draw_brightness << 16);
+    h = mix(h, (uint16_t)starfield.speed | (uint32_t)starfield.active << 16 |
+        (uint32_t)starfield.initialized << 17 | (uint32_t)starfield.draw_astral << 18);
+    if (starfield.initialized) {
+        for (i = 0; i < STAR_COUNT; i++) {
+            const Star *s = &starfield.star[i];
+            h = mix(h, s->position | (uint32_t)s->speed << 16 | (uint32_t)s->color << 24);
+        }
+    }
     h = mix(h, game.frame);
     h = mix(h, game.cur_loc | (uint32_t)game.event_loc << 16);
     h = mix(h, game.power | (uint32_t)p->cash << 16);

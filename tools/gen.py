@@ -80,7 +80,7 @@ def gen_level_bg(ep, num, idx):
     for li, bmp in enumerate(bmps):
         h, w = bmp.shape
         ccols = w // 8
-        cell_ids, cell_data = {}, []
+        cell_ids, cell_data, star_clear = {}, [], []
         attrs = np.zeros((h // 8, ccols), np.uint16)
         for n, i in enumerate(where[li]):
             cy, cx = divmod(n, ccols)
@@ -94,6 +94,8 @@ def gen_level_bg(ep, num, idx):
             if key not in cell_ids:
                 cell_ids[key] = len(cell_data)
                 cell_data.append(key)
+                star_clear.append(1)
+            star_clear[cell_ids[key]] &= int(np.all(blk == (0 if li == 0 else raster.TRANSPARENT)))
             attrs[cy, cx] = cell_ids[key] | flip | (g << 13)
         meta_ids, metas = {}, []
         mrows, mcols = h // 56, w // 24
@@ -118,7 +120,7 @@ def gen_level_bg(ep, num, idx):
         # BG_WIN_ROWS-row window: sizes its VRAM slot pool
         ids = attrs & 0x7FF
         need = max(len(np.unique(ids[y:y + BG_WIN_ROWS])) for y in range(max(1, len(ids) - BG_WIN_ROWS + 1)))
-        layers.append(dict(cells=len(cell_data), tiles=tiles, meta=meta_words,
+        layers.append(dict(cells=len(cell_data), tiles=tiles, meta=meta_words, star_clear=star_clear,
                            metamap=[int(x) for x in metamap.ravel()], mrows=mrows, mcols=mcols,
                            need=need))
     cram = []
@@ -129,10 +131,11 @@ def gen_level_bg(ep, num, idx):
     c = emit.c_array("u16", pre + "palette", cram)
     for li, L in enumerate(layers):
         c += emit.tile_array(f"{pre}bg{li + 1}_tiles", L["tiles"])
+        c += emit.c_array("u8", f"{pre}bg{li + 1}_clear", L["star_clear"], 32, "{}")
         c += emit.c_array("u16", f"{pre}bg{li + 1}_meta", L["meta"], 21)
         c += emit.c_array("u16", f"{pre}bg{li + 1}_metamap", L["metamap"], L["mcols"], "{}")
     entry = ("    { { " + ", ".join(
-        f"{{ {pre}bg{li + 1}_tiles, {pre}bg{li + 1}_meta, {pre}bg{li + 1}_metamap, {L['cells']}, {L['mrows']}, {L['mcols']} }}"
+        f"{{ {pre}bg{li + 1}_tiles, {pre}bg{li + 1}_meta, {pre}bg{li + 1}_metamap, {pre}bg{li + 1}_clear, {L['cells']}, {L['mrows']}, {L['mcols']} }}"
         for li, L in enumerate(layers)) + f" }}, {pre}palette, {sum(L['need'] for L in layers)}, "
              f"{sum(L['cells'] for L in layers)} }}")
     stats = ", ".join(f"L{li + 1} {L['cells']} cells {L['need']} resident" for li, L in enumerate(layers))
@@ -149,6 +152,7 @@ def write_level_bgs(out, bgs):
          "typedef struct {\n    const u32 *tiles;      /* 8 longs per cell */\n"
          "    const u16 *meta;       /* 21 attrs per metatile, row-major */\n"
          "    const u16 *metamap;    /* mrows x mcols metatile ids, top row first */\n"
+         "    const u8 *star_clear; /* fully clear cells for starfield occlusion */\n"
          "    u16 cells, mrows, mcols;\n} BgLayer;\n"
          f"#define BG_LAYER_COUNT {BG_LAYERS}\n"
          "typedef struct {\n    BgLayer layers[BG_LAYER_COUNT];\n    const u16 *palette;   /* 32 CRAM words */\n"
@@ -566,6 +570,17 @@ def gen_sprites(out, it, lvls, bg_pals):
         gfx.append(_piece(tabs[11], f - 500) if f > 500 else _piece(tabs[7], f))
         pal_of.append(0)
 
+    star_gfx = []
+    for color in range(0x90, 0xa0):
+        star_gfx.append(len(gfx))
+        img = np.full((16, 16), -1, np.int32)
+        img[1, 1] = color
+        if color >= 0x94:
+            for x, y in ((0, 1), (2, 1), (1, 0), (1, 2)):
+                img[y, x] = color - 4
+        gfx.append(img)
+        pal_of.append(0)
+
     # Sidekick artwork shares the player's palette. Styles 1/2 use the
     # large sprite sheet; the rest use individual ship-sheet pieces.
     option_small = [0xFFFF] * 305
@@ -806,7 +821,7 @@ def gen_sprites(out, it, lvls, bg_pals):
          "#define GFX_NONE 0xFFFF\n"
          "/* shot frame (1..1000, >500 = sheet 12) -> gfx */\n"
          "extern const u16 shot_gfx[1001];\n"
-         "extern const u16 beam_gfx[1];\n"
+         "extern const u16 beam_gfx[1], star_gfx[16];\n"
          "extern const u16 option_small_gfx[305], option_big_gfx[305];\n"
          "typedef struct { u16 gfx; u8 x, y; } SpecialPiece;\n"
          "extern const SpecialPiece special_pieces[];\n"
@@ -832,6 +847,7 @@ def gen_sprites(out, it, lvls, bg_pals):
     c += emit.c_array("u16", "shot_gfx", shot_index, 16, "{}")
     c += emit.c_array("u16", "option_small_gfx", option_small)
     c += emit.c_array("u16", "option_big_gfx", option_big)
+    c += emit.c_array("u16", "star_gfx", star_gfx)
     c += emit.c_array("u16", "beam_gfx", [beam_index])
     c += emit.c_array("u16", "special_starts", special_starts)
     c += emit.c_array("u8", "special_counts", special_counts, 16, "{}")

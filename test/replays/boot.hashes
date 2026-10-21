@@ -1,6 +1,6 @@
 # Episode  hash after 600 ticks of boot.txt (story funds; release controls, no debug weapon cycling).
-1 4ede7a07
-2 65b9aa0b
-3 194da198
+1 bd0a0fdd
+2 fd100b75
+3 838b0b14
 # Episode 4 lowers the selected difficulty by one, as tyrian2.c does.
-4 56ad7742
+4 66882bff

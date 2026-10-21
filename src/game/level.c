@@ -3,13 +3,14 @@
  * JE_eventJump, JE_searchFor, the background part of JE_main) and
  * backgrnd.c (layer movement).  Single player, no arcade/galaga modes.
  * Visual-only events are kept as state for the renderer or ignored:
- * starfield (1, 8, 9), window text (16), music (34, 35), filters (44),
- * smoothies (64), sounds (62). */
+ * starfield (1, 8, 9) and filters (44) are simulated; window text (16),
+ * music (34, 35) and sounds (62) are queued. Smoothies (64) remain omitted. */
 #include "level.h"
 #include "game.h"
 #include "enemy.h"
 #include "player.h"
 #include "filter.h"
+#include "stars.h"
 #include "rng.h"
 #include "gen_data/level.h"
 
@@ -221,6 +222,10 @@ static void event_system(void)
     int i, b;
 
     switch (ev->type) {
+    case 1: starfield.speed = ev->dat; break;
+    case 8: starfield.active = 0; break;
+    case 9: starfield.active = 1; break;
+
     case 2:
     case 30:
         game.layer[0].delay = game.layer[0].delay_max = 1;

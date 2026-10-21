@@ -11,6 +11,8 @@
 #define BG_VRAM_END (TILE_USER_INDEX + level_bgs[game.level].pool_need)
 
 void bg_init(void);
+/* Coarse star occlusion: both planes must have a fully clear 8x8 cell. */
+bool bg_star_visible(s16 x, s16 y);
 /* once per 60 Hz frame; frac = progress towards the next tick, 0..11 */
 void bg_update(u16 frac, bool light);
 

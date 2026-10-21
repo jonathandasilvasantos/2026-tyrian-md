@@ -46,7 +46,8 @@ static int mapper_enabled;
 static uint8_t cart_banks[8] = {0,1,2,3,4,5,6,7};
 static uint8_t vdp_regs[24];
 static unsigned vdp_command_hi, vdp_command_pending;
-static unsigned dma_transfers;
+static unsigned dma_transfers, frame_dma_bytes, peak_dma_bytes, peak_dma_frame, dma_over_budget;
+static uint32_t heap_addr;
 static uint8_t ram[0x10000];
 static uint8_t zram[0x2000];
 static unsigned frame_no;
@@ -135,6 +136,8 @@ void bench_instr_hook(unsigned int pc) {
         if (force_level && level_addr) wr8(level_addr, (unsigned)force_level);
     }
     if (pc == tick_addr) {
+        /* Exclude level preparation from the first gameplay-loop sample. */
+        if (!ticks) { it_start = c; idle_at_start = idle_total; }
         it_ticked = 1;
         if (hold_level_addr) wr8(hold_level_addr, 1);
         /* game_tick(u16 pad): int-promoted stack argument, low word at sp+6 */
@@ -230,6 +233,7 @@ static void vdp_control(unsigned v) {
             (void)rd8(source);
             (void)rd8(source + length * 2 - 1);
             dma_transfers++;
+            if (ticks && (vdp_regs[1] & 0x40)) frame_dma_bytes += length * 2;
         }
     }
 }
@@ -248,6 +252,7 @@ static void load_syms(const char *path) {
     while (fgets(line, sizeof line, fp) && nsyms < MAX_SYMS) {
         unsigned addr; char t, name[64];
         if (sscanf(line, "%x %c %63s", &addr, &t, name) != 3) continue;
+        if (!strcmp(name, "heap")) heap_addr = addr;
         if (!strcmp(name, "main")) main_addr = addr;
         if (!strcmp(name, "frame_hash")) hash_addr = addr;
         if (!strcmp(name, "debug_hold_level")) hold_level_addr = addr;
@@ -357,7 +362,7 @@ int main(int argc, char **argv) {
         if (force_level && level_addr) wr8(level_addr, (unsigned)force_level);
         /* menus before the first level read the pad directly: tap START */
         if (!ticks) pad = frame_no % 30 < 3 ? 0x80 : 0;
-        frame_base = total_base; frame_idle = 0;
+        frame_base = total_base; frame_idle = 0; frame_dma_bytes = 0;
         ticks_before = ticks;
         prof_on = frame_no >= prof_a && frame_no < prof_b;
         m68k_set_irq(6);
@@ -366,6 +371,8 @@ int main(int argc, char **argv) {
         while (total_base - frame_base < FRAME_CYC && ticks <= want)
             total_base += (uint64_t)m68k_execute((int)(FRAME_CYC - (total_base - frame_base)));
         if (ticks > want) break;
+        if (frame_dma_bytes > peak_dma_bytes) { peak_dma_bytes = frame_dma_bytes; peak_dma_frame = frame_no; }
+        if (frame_dma_bytes > 7 * 1024) dma_over_budget++;
         busy = FRAME_CYC - (frame_idle > FRAME_CYC ? FRAME_CYC : frame_idle);
         if (ticks) { sum_busy += busy; nb++; if (busy > max_busy) max_busy = busy; if (!frame_idle) over++;
             if (ticks != ticks_before) { busy_t += busy; n_t++; if (busy > max_t) max_t = busy; if (!frame_idle) over_t++; }
@@ -396,6 +403,18 @@ int main(int argc, char **argv) {
     if (hf_cyc) { uint64_t t = 0; uint32_t a; for (a = hf_lo; a < hf_hi; a += 2) t += hf_cyc[(a - hf_lo) >> 1];
         for (a = hf_lo; a < hf_hi; a += 2) if (hf_cyc[(a - hf_lo) >> 1] * 100 > t)
             printf("  pc %06x %5.1f%%\n", a, 100.0 * hf_cyc[(a - hf_lo) >> 1] / t); }
+    if (heap_addr) {
+        unsigned node = rd32(heap_addr) & 0xffffff, heap_free_bytes = 0, count;
+        /* SGDK 2.00 memory.c: a low-bit used tag and an even block size. */
+        for (count = 0; count < 32768 && node >= 0xff0000 && node < 0xfff600; count++) {
+            unsigned header = m68k_read_memory_16(node), size = header & ~1u;
+            if (!header || size < 2) break;
+            if (!(header & 1)) heap_free_bytes += size;
+            node += size;
+        }
+        printf("SGDK heap free: %u bytes (stack reserve separate)\n", heap_free_bytes);
+    }
+    printf("gameplay DMA peak: %u bytes at frame %u; frames above 7 KB: %u\n", peak_dma_bytes, peak_dma_frame, dma_over_budget);
     printf("validated DMA transfers: %u\n", dma_transfers);
     printf("ticks %llu hash %08x\n", (unsigned long long)want, rd32(hash_addr));
     return 0;

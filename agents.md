@@ -32,7 +32,7 @@ not its game code. Toolchain: `m68k-elf-gcc` (Homebrew), `GDK=./sgdk`.
 | RAM | MBs | 64 KB work RAM (+ 8 KB Z80 RAM) |
 | Video | 320×200, 256 colors, linear framebuffer, software blits | 320×224 (H40), 4 palettes × 15 colors + transparent, tiles 8×8, 2 scroll planes + window, 80 sprites / 20 per line, 64 KB VRAM |
 | Audio | AdLib OPL2 (LDS/Loudness songs) + 8-bit PCM SFX | YM2612 (6 FM ch, OPN2) + SN76489 PSG (3 square + noise), Z80 driver, PCM on ch6 |
-| Storage | ~11 MB of data files | Up to 8 MB ROM; current builds use 4 MB linear space |
+| Storage | ~11 MB of data files | 8 MB physical ROM, 4 MB CPU window (SSF2) |
 | Input | keyboard/mouse/joystick | 3/6-button pad |
 
 Engine entry points to study in `open-tyrian/src/`: `tyrian2.c` (main loop,
@@ -125,7 +125,7 @@ what changed, why, worst-case visible difference. Approved directions:
   PSG for simple blips. Sample rates reduced to fit ROM.
 - **Scope**: all episodes and features present in OpenTyrian are the target
   (user request, 2026-10-21). Start with episodes 1–4 from Tyrian 2.1 data;
-  text screens, Astral backgrounds and the third background layer remain
+  text screens and the third background layer remain
   required; shop checkpoints use passwords; sidekicks and all four episode flows are implemented. Two-player mode, Destruct, networking, jukebox and
   setup/config screens come later. Additional data-dependent content needs
   its original data source; do not invent missing content.
@@ -249,9 +249,16 @@ Every intentional difference from OpenTyrian, one line each:
 - Equipped specials — story types 1–11 use the PC projectiles, repulsor,
   attractor, flare durations/frequencies, linked firing, waits and primary-fire
   edge trigger; 47 data records are converted — portable simulation — standard ship combos, shield/armor costs, invulnerability, repair, spray
-  flares and option spawning are implemented. SuperTyrian mode and Astral-background effects remain pending; repair-P2 awaits the second-player
+  flares and option spawning are implemented. SuperTyrian mode remains pending; repair-P2 awaits the second-player
   engine.
   HUD uses a six-character name and readiness text instead of the PC icon.
+- Starfield / Astral — original 100 star positions, speed/color rules, 16-bit
+  position wrap and events 1/8/9; initialization consumes the original 400 RNG
+  draws, once play starts — preconverted 8x8 sprites submitted after gameplay
+  objects, full-clear 8x8 background-cell masks replace per-pixel occlusion —
+  fewer stars near partially opaque tiles or when sprite/cache limits bind;
+  colors share PAL2. Astral hides/restores Plane B with one 4 KB DMA using a
+  WRAM tilemap mirror; near-plane occlusion remains active.
 - Global filters — event 44, level-entry fades and flare hue/brightness
   timing follow JE_filterScreen; PC pixel-index changes become 64-word CRAM
   updates using a deterministic 512-entry inverse color LUT and the lifted PC
@@ -333,13 +340,20 @@ Fill and keep current.
     sprite piece of the level), shot collision lists ~300.
   - total .bss depends on the episode: episode 1 34,372 bytes; episode 2
     34,980; episode 3 34,364; episode 4 30,124 (historical separate builds).
-    Unified cartridge with sidekicks: .bss 36,404 bytes + .data 90; active table pointers
-    181 bytes, two campaign-state bytes, dynamic sprite-slot count 2 bytes,
+    Unified cartridge with sidekicks: .bss 44,108 bytes + .data 90; active table pointers
+    185 bytes, two campaign-state bytes, dynamic sprite-slot count 2 bytes,
     PAL sprite velocity scale 2 bytes; HUD text uses a 32-bit tick deadline.
     `Player`: 20 pairs of 16-bit history coordinates, two 20-byte companion
     states, option IDs, 32-bit orbit phase, attachment state, all 11 PC shot
     cooldown/multiposition bays. The level-start Player checkpoint is static
     instead of a large stack local (Player and checkpoint: 204 bytes each).
+    Starfield: 406 bytes; background star masks: 3,072 bytes plus 96 staging
+    bytes; rendered scroll: 4 bytes; Astral flag: 1 byte; Plane B mirror:
+    4,096 bytes; star rotation: 2 bytes.
+    SGDK DMA heap allocations: 9,476 bytes including block headers (8 KB
+    copy buffer and 80 x 16-byte queue); measured heap free: 9,300 bytes,
+    with the 0xA00 stack reserve separate. BSS + data + allocated heap +
+    reserved stack: 56,234 of 65,536 bytes.
     Filter simulation: 9 bytes; CRAM output: 128 bytes + 2-byte last-color key.
     Special runtime: 20 bytes (three combo positions and queued execution included); special HUD cache: 2 bytes; replay special ID: 1 byte.
     Sidekick HUD state cache: 4 bytes; pause message pointer: 4 bytes;
@@ -361,9 +375,9 @@ Fill and keep current.
     `_Static_assert` on the total (1440) and the tilemaps at 0xC000 (SGDK
     defaults: plane B 0xC000, window 0xD000, plane A 0xE000, sprites 0xF800).
 - Entity caps: enemies 100, enemy shots 60, player shots 64, explosions 64.
-- ROM: unified cartridge (2026-10-21): fixed .text ~3.24 MB,
+- ROM: unified cartridge (2026-10-21): fixed .text 3,388,160 bytes,
   initial .data 90; far graphics and extra option/weapon frames bring the used physical ROM
-  end to 7,310,720 bytes, padded to 8 MB (86%). Password codec/UI add ~5.9 KB of code/tables. The fixed region still has ~334 KB
+  end to 7,318,912 bytes, padded to 8 MB (87%). Password codec/UI add ~5.9 KB of code/tables. The fixed region still has 281,766 bytes
   of headroom. The shipped SGDK math source is
   recompiled with function sections (read-only include); garbage collection
   removes ~393 KB of unused log/sqrt tables and other unused math routines.
@@ -393,6 +407,14 @@ Fill and keep current.
   (bottom 4 px of tile A + top 4 px of tile B) for each vertical pair that
   occurs (max 515 pairs per layer). Maps stay in tile units.
 - Worst frame (cycles): (level — cycles — date)
+  - episode 4, Astral with stars, 600 ticks: avg busy 71,185 / max 127,856
+    cycles, 11 frames without idle; maximum loop work 241,870 cycles; stack
+    1,284 bytes. Gameplay DMA peak 4,820 bytes; Plasma Storm 5,044, episode-2
+    Charge/MegaMissile 4,856, bombs 2,572, Flare 2,700. No tested frame above
+    7 KB. These are short profiles, not worst-case guarantees; slowdown remains
+    (2026-10-21). The harness now reports gameplay DMA and SGDK heap free.
+    Astral map restoration uses a WRAM mirror to avoid rebuilding 30 rows
+    during a frame.
   - episode 1, Flare equipped with CRAM effects, 600 ticks: avg busy 75,013 /
     max 127,856 cycles, 30 frames without idle; loop work peaks at 197,706
     cycles, stack 1,284 bytes. Still slows in dense scenes (2026-10-21).
@@ -469,7 +491,9 @@ Fill and keep current.
   Two ten-bomb, eight equipped-special and two ship-combo replays also run
   in both regions. Special hashes include combo progress, queued execution,
   cooldowns and effect state; player hashes include invulnerability ticks.
-  Global filter state/fade phases are also hashed. Converter tests verify
+  Global filter state/fade phases and all 100 stars are also hashed. Star
+  tests cover every 16-bit position quotient/remainder, initialization RNG
+  consumption, wrap-around, disabled stars and Astral override. Converter tests verify
   deterministic inverse color matching; C tests cover brightness overflow and
   the one-tick delay between fade state and displayed colors. Checkpoint replays on the
   68000 encode/load the opening state of each episode, then must match the
@@ -517,10 +541,10 @@ Write tests for behavior, not implementation; no duplicate tests.
    saves.
 7. **Audio** (done: `tools/lds_dump`, `tools/tyrdata/music.py`,
    `make music`, `src/sound.c`): OPL→YM2612 music conversion, SFX.
-8. **Bosses, polish, worst-frame tuning** (done: boss bar, window texts,
+8. **Bosses, polish, worst-frame tuning** (features implemented; worst-frame tuning remains: boss bar, window texts,
    shop music, `make bench-levels`; bosses verified killable on the host;
    slowdown documented in §9).
-9. Optional: 2-player, Destruct, extras.
+9. Later, required by the full-port scope: 2-player, Destruct, extras.
 
 ## Licensing
 

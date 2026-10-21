@@ -8,6 +8,7 @@
 #include "game/player.h"
 #include "game/password.h"
 #include "game/special.h"
+#include "game/stars.h"
 #include "game/script.h"
 #include "gen_data/script.h"
 #include "gen_data/episodes.h"
@@ -94,6 +95,7 @@ static u8 play_level(const FlowStep *st)
     if (debug_special) special_equip(debug_special);
     level_screen_setup(level_names[st->name]);
     color_effects_reset();
+    stars_begin(); /* loading phase, before the timed gameplay loop */
     sound_music(st->song);
     while (TRUE) {
         u16 pad = read_pad();

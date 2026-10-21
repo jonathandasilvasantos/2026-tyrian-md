@@ -20,6 +20,7 @@
 #include "bg.h"
 #include "game/game.h"
 #include "game/level.h"
+#include "game/stars.h"
 #include "gen_data/level_bg.h"
 #include "dmaq.h"
 
@@ -45,9 +46,14 @@ typedef struct {
     s16 loading;        /* row being brought in, -1 none */
     u16 step;           /* next step for it: 0 release, 1 left half, 2 right half */
     u16 row_buf[ROW_CELLS_MAX];
+    u8 star_buf[ROW_CELLS_MAX];
 } Layer;
 
 static Layer layers[BG_LAYER_COUNT];
+static u8 star_clear[BG_LAYER_COUNT][32][ROW_CELLS_MAX];
+static s16 rendered_x[BG_LAYER_COUNT];
+static bool astral_hidden;
+static u16 back_shadow[PLANE_ROWS][64]; /* bulk Astral restore, no row rebuild */
 static u32 last_tick;
 /* real row each plane row was loaded from: release must decode the same
  * cells even after a wrap moved the mapping */
@@ -88,6 +94,7 @@ static void load_cols(Layer *l, s16 v, u16 mx0, u16 mx1)
                 dmaq_vram(d->tiles + cell * 8, l->slot[cell] * 32, 16);
             }
             *out++ = (a & 0xF800) | l->slot[cell];
+            l->star_buf[mx * 3 + k] = d->star_clear[cell];
         }
     }
 }
@@ -95,7 +102,12 @@ static void load_cols(Layer *l, s16 v, u16 mx0, u16 mx1)
 static void write_row(Layer *l, s16 v, TransferMethod tm)
 {
     loaded_real[l - layers][v & 31] = real_row(l, v);
-    VDP_setTileMapDataRow(l->plane, l->row_buf, v & (PLANE_ROWS - 1), 0, l->def->mcols * 3, tm);
+    static const u16 empty[ROW_CELLS_MAX] = {0};
+    u16 width = l->def->mcols * 3;
+    memcpy(star_clear[l - layers][v & 31], l->star_buf, width);
+    if (l == layers) memcpy(back_shadow[v & 31], l->row_buf, width * 2);
+    VDP_setTileMapDataRow(l->plane, astral_hidden && l == layers ? empty : l->row_buf,
+                         v & (PLANE_ROWS - 1), 0, width, tm);
 }
 
 /* Virtual y of the screen top and hscroll for layer i from the game. */
@@ -137,6 +149,9 @@ void bg_init(void)
 
     const LevelBg *lb = &level_bgs[game.level];
 
+    astral_hidden = FALSE;
+    memset(star_clear, 1, sizeof star_clear);
+    memset(back_shadow, 0, sizeof back_shadow);
     PAL_setColors(0, lb->palette, 32, DMA);
     VDP_clearPlane(BG_A, TRUE);
     VDP_clearPlane(BG_B, TRUE);
@@ -155,6 +170,7 @@ void bg_init(void)
         layer_target(i, &l->vy_cur, &l->x_cur);
         l->vy_prev = l->vy = l->vy_cur;
         l->x_prev = l->x_cur;
+        rendered_x[i] = l->x_cur;
         l->top = want_top(l);
         for (r = l->top; r < l->top + BG_WIN_ROWS && r < (s16)l->rows; r++) {
             load_cols(l, r, 0, l->def->mcols);
@@ -175,6 +191,31 @@ static s16 lerp(s16 prev, s16 cur, u16 frac)
     return prev + (s16)(((s32)(s16)(cur - prev) * (s16)(frac * 21)) >> 8);
 }
 
+/* Astral Zone swaps Plane B's map in one DMA. A WRAM mirror follows the
+ * normal row stream, including while hidden, so restoration requires no
+ * tile decoding/refcount changes and does not clobber partially loaded rows. */
+static void astral_background(bool hidden)
+{
+    static const u16 empty[PLANE_ROWS * 64] = {0};
+    if (hidden == astral_hidden) return;
+    astral_hidden = hidden;
+    VDP_setTileMapData(VDP_getBGBAddress(), hidden ? empty : back_shadow[0],
+                       0, PLANE_ROWS * 64, 2, DMA_QUEUE);
+}
+
+bool bg_star_visible(s16 x, s16 y)
+{
+    u16 i;
+    for (i = 0; i < BG_LAYER_COUNT; i++) {
+        const Layer *l = &layers[i];
+        s16 col = (x + SX_OFF - rendered_x[i]) >> 3;
+        u16 row = ((y + SY_OFF + l->vy) >> 3) & 31;
+        if (i == 0 && astral_hidden) continue;
+        if (col >= 0 && col < (s16)(l->def->mcols * 3) && !star_clear[i][row][col]) return FALSE;
+    }
+    return TRUE;
+}
+
 void bg_update(u16 frac, bool light)
 {
     u16 i;
@@ -182,6 +223,7 @@ void bg_update(u16 frac, bool light)
     bool ticked = game.frame != last_tick;
 
     last_tick = game.frame;
+    astral_background(starfield.draw_astral);
     for (i = 0; i < BG_LAYER_COUNT; i++) {
         Layer *l = &layers[i];
         if (ticked) {
@@ -211,7 +253,8 @@ void bg_update(u16 frac, bool light)
             }
             l->step++;
         }
-        VDP_setHorizontalScroll(l->plane, lerp(l->x_prev, l->x_cur, frac));
+        rendered_x[i] = lerp(l->x_prev, l->x_cur, frac);
+        VDP_setHorizontalScroll(l->plane, rendered_x[i]);
         VDP_setVerticalScroll(l->plane, l->vy);
     }
 }

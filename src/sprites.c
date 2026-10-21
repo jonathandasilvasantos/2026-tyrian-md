@@ -20,6 +20,8 @@
 #include "game/shots.h"
 #include "game/enemy.h"
 #include "game/special.h"
+#include "game/stars.h"
+#include "bg.h"
 #include "gen_data/sprites.h"
 #include "gen_data/items.h"
 #include "gen_data/shot_shapes.h"
@@ -45,6 +47,7 @@ static const u16 *const *big_bank;   /* this level's bank -> big frame tables */
 static u16 big_tile0, big_victim;
 static u16 big_slot_gfx[BIG_SLOTS], big_slot_stamp[BIG_SLOTS];
 static u8 big_slot[BIG_GFX_COUNT];   /* slot + 1 */
+static u16 rot_star;
 static u16 rot_es, rot_e, rot_ps, rot_x;   /* rotating start of each list */
 static u16 n;                    /* sprites used this frame */
 static s16 pos_x4[SPR_MAX], pos_y4[SPR_MAX];   /* 12.4 VDP positions (screen + 0x80) */
@@ -71,6 +74,7 @@ static const s8 *lerp_row;
 void sprites_init(u16 first_tile)
 {
     u16 i;
+    rot_star = STAR_COUNT - 1;
     frame_velocity = IS_PAL_SYSTEM ? 179 : 149;
     gfx_slots = SPRITES_PIECE_COUNT(level_bgs[game.level].pool_need);
     big_bank = big_gfx_level[game.level];
@@ -204,6 +208,36 @@ static inline void put_big(u16 big, s16 x, s16 y)
 
 /* Zinglon: cached solid-white tiles, expanded to 8-pixel columns rather
  * than PC per-pixel brightening. At most 18 sprites, behind enemy bullets. */
+/* Star art is preconverted. Draw last so decorative stars lose slots before
+ * any gameplay object. Full-clear cell masks replace the PC pixel-zero test. */
+static void draw_stars(void)
+{
+    s16 offset[3];
+    u16 i, index = rot_star, failed = 0;
+    if (!starfield.initialized || (!starfield.active && !starfield.draw_astral)) return;
+    for (i = 0; i < 3; i++) {
+        s16 speed = starfield.speed + (s16)i + 2;
+        offset[i] = ((s32)speed * (256 - frac_q)) >> 8;
+    }
+    for (i = 0; i < STAR_COUNT && n < SPR_MAX; i++) {
+        const Star *s = &starfield.star[index];
+        u16 x, y, before;
+        s16 py;
+        star_coordinates(s->position, &x, &y);
+        py = (s16)y - offset[s->speed - 2];
+        if (!(failed & (1u << (s->color - 0x90))) && x >= 24 && x < 288 && y < 177 && py >= 0 && bg_star_visible(x, py)) {
+            object_delta(0, starfield.speed + s->speed);
+            before = n;
+            put(star_gfx[s->color - 0x90], x - 1, py - 1);
+            if (n != before) sp[-1].size_link = (SPRITE_SIZE(1, 1) << 8) | n;
+            else failed |= 1u << (s->color - 0x90);
+        }
+        index = index ? index - 1 : STAR_COUNT - 1;
+    }
+    rot_star += 13;
+    if (rot_star >= STAR_COUNT) rot_star -= STAR_COUNT;
+}
+
 static void draw_zinglon(void)
 {
     s16 radius, left, y;
@@ -404,6 +438,7 @@ void sprites_update(u16 frac, bool ticked)
     draw_enemies();
     draw_player_shots();
     draw_explosions();
+    draw_stars();
     if (n == 0) {   /* keep one (off-screen) sprite so the list is valid */
         VDP_setSpriteFull(0, -32, -32, SPRITE_SIZE(1, 1), 0, 0);
         object_delta(0, 0);

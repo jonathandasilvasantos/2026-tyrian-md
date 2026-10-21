@@ -101,6 +101,10 @@ out/test_game: test/test_game.c $(GAME_SRCS) $(GAME_HDRS) Makefile
 	@mkdir -p out
 	$(CC) $(HOST_CFLAGS) test/test_game.c $(GAME_SRCS) -o $@
 
+out/test_stars: test/test_stars.c src/game/stars.c src/game/stars.h src/game/rng.c src/game/special.h Makefile
+	@mkdir -p out
+	$(CC) $(HOST_CFLAGS) test/test_stars.c src/game/stars.c src/game/rng.c -o $@
+
 out/test_filter: test/test_filter.c src/game/filter.c src/game/filter.h Makefile
 	@mkdir -p out
 	$(CC) $(HOST_CFLAGS) test/test_filter.c src/game/filter.c -o $@
@@ -110,10 +114,11 @@ out/test_password: test/test_password.c $(GAME_SRCS) $(GAME_HDRS) Makefile
 	$(CC) $(HOST_CFLAGS) test/test_password.c $(GAME_SRCS) -o $@
 
 unit-test: gen
-	@$(MAKE) --no-print-directory out/test_game out/test_password out/test_filter
+	@$(MAKE) --no-print-directory out/test_game out/test_password out/test_filter out/test_stars
 	@./out/test_game
 	@./out/test_password
 	@./out/test_filter
+	@./out/test_stars
 
 # ── 68000 runner (Musashi) ───────────────────────────────────────────────────
 out/musashi/m68kops.c:
@@ -188,10 +193,11 @@ parity-pal: out/bench68k out/rom.syms out/tyrian_host
 	@B68K_PAL=1 $(MAKE) --no-print-directory parity-episodes parity-sidekicks parity-checkpoint parity-specials parity-combos
 
 test: rom
-	@$(MAKE) --no-print-directory py-test out/test_game out/test_password out/test_filter parity-episodes parity-sidekicks parity-checkpoint parity-specials parity-combos parity-pal
+	@$(MAKE) --no-print-directory py-test out/test_game out/test_password out/test_filter out/test_stars parity-episodes parity-sidekicks parity-checkpoint parity-specials parity-combos parity-pal
 	@./out/test_game
 	@./out/test_password
 	@./out/test_filter
+	@./out/test_stars
 
 clean:
 	@rm -rf out
