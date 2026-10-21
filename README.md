@@ -19,7 +19,9 @@ score-based difficulty progression, starfields/Astral backgrounds, event/flare
 palette effects, the original story text/pictures/music cues, datacube reading with
 portraits and campaign availability, superpixel projectile/impact sparks, START pause and shop checkpoint passwords
 are implemented. Scripted ENGAGE equipment, the 21 SuperTyrian combos and
-the core GALAGA lives/bonus-checkpoint loop are also ported.
+the GALAGA lives/bonus-checkpoint loop and pickup-linked second ship
+(rotating gun, charge shots, armor and bombs) are also ported. Purple balls
+use the original per-power collection thresholds.
 
 Validation covers script references for every episode, host unit tests and
 600-tick ROM/host replays at each episode's opening level on both NTSC and
@@ -27,7 +29,7 @@ PAL. Both regions run the same 35 Hz simulation. Full campaigns,
 visual accuracy and hardware timing still need validation; dense scenes can
 slow down. See `agents.md` §8 for deviations and §9 for budgets.
 
-Still required: the linked GALAGA ship, full mode selection, story text glow/picture pans, ending animation, the third
+Still required: full mode selection, story text glow/picture pans, ending animation, the third
 (top) background layer, and the remaining OpenTyrian modes/features. The
 ROM uses the official Sega SSF2 mapper; code, tables and audio stay in the
 fixed lower 3.5 MB, while DMA maps graphics through the upper 512 KB.

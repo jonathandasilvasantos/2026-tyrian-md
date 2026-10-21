@@ -11,7 +11,7 @@
 #include "gen_data/items.h"
 #include "gen_data/level.h"
 
-Player players[1];
+Player players[2];
 
 #define KEY_SPEED 1   /* CURRENT_KEY_SPEED */
 
@@ -32,6 +32,12 @@ void player_init(void)
     /* tyrian2.c:newGame, single-player story starting funds. */
     static const uint16_t initial_cash[4] = {10000, 15000, 20000, 30000};
     p->cash = initial_cash[LEVEL_EPISODE - 1];
+}
+
+static void purple_needed(Player *p, uint8_t player_num)
+{
+    static const uint8_t required[12] = {1,1,2,4,8,12,16,20,25,30,40,50};
+    p->purple_balls_needed = required[p->weapon_power[player_num == 2 ? REAR_WEAPON : FRONT_WEAPON]];
 }
 
 /* tyrian2.c level start: position, shields, armor, invulnerability */
@@ -68,6 +74,7 @@ void player_start_level(void)
     p->exploding_ticks = 0;
     p->mode_button_held = 0;
     p->superbombs = 0;
+    purple_needed(p, 1);
     sidekicks_init();
     special_init();
 }
@@ -82,7 +89,8 @@ static int16_t clamp(int16_t v, int16_t lo, int16_t hi)
 /* JE_mainGamePlayerFunctions' parallax: map offsets from the ship X. */
 static void update_map_offsets(void)
 {
-    int16_t t = (int16_t)(((296 - players[0].x) * 72) / 224) - 1;
+    int16_t x = game_mode.buddy ? (players[0].x + players[1].x) / 2 : players[0].x;
+    int16_t t = (int16_t)(((296 - x) * 72) / 224) - 1;
     game.map_x_ofs[2] = t;
     game.map_x_ofs[1] = (t * 2) / 3;
     game.old_map_x_ofs = game.map_x_ofs[0];
@@ -115,6 +123,7 @@ void player_tick(uint16_t pad)
         }
         if (was_exploding || !mode_respawn()) {
             if (!game.end_level) sidekicks_animate();
+            if (game_mode.buddy) { mode_buddy_tick(pad); update_map_offsets(); }
             return;
         }
     }
@@ -122,6 +131,7 @@ void player_tick(uint16_t pad)
         /* end-of-level warp: the ship flies off the top */
         p->y -= game.level_end_warp;
         if (game.level_end == 0 || p->y < -200) game.really_end_level = 1;
+        if (game_mode.buddy) mode_buddy_tick(pad);
         update_map_offsets();
         return;
     }
@@ -208,24 +218,31 @@ void player_tick(uint16_t pad)
     }
     sidekicks_tick(pad);
     sidekicks_animate();
+    if (game_mode.buddy) mode_buddy_tick(pad);
     update_map_offsets();
 }
 
-uint8_t player_power_up(uint8_t port)
+uint8_t player_power_up_for(uint8_t player_num, uint8_t port)
 {
-    Player *p = &players[0];
+    Player *p = &players[player_num - 1];
     if (p->weapon_id[port] != 0 && p->weapon_power[port] < 11) {
         p->weapon_power[port]++;
         p->shot_multi_pos[port] = 0;
+        purple_needed(p, player_num);
         return 1;
     }
     p->cash += 1000;
     return 0;
 }
 
-uint8_t player_damage(uint8_t dmg)
+uint8_t player_power_up(uint8_t port)
 {
-    Player *p = &players[0];
+    return player_power_up_for(1, port);
+}
+
+uint8_t player_damage_for(uint8_t player_num, uint8_t dmg)
+{
+    Player *p = &players[player_num - 1];
     uint8_t taken = 0;
     game.sound_queue[7] = S_SHIELD_HIT;
     if (p->shield < dmg) {
@@ -256,6 +273,11 @@ uint8_t player_damage(uint8_t dmg)
     return taken;
 }
 
+uint8_t player_damage(uint8_t dmg)
+{
+    return player_damage_for(1, dmg);
+}
+
 /* Kill enemy b and its link group (collision branch of JE_playerCollide). */
 static void collide_kill(int b, uint8_t link)
 {
@@ -282,9 +304,9 @@ static void collide_kill(int b, uint8_t link)
     enemy_avail[b] = EA_FREE;
 }
 
-void player_collide(void)
+void player_collide_for(uint8_t player_num)
 {
-    Player *p = &players[0];
+    Player *p = &players[player_num - 1];
     int z;
     Enemy *e;
     for (z = 0, e = enemies; z < ENEMY_MAX; z++, e++) {
@@ -302,17 +324,31 @@ void player_collide(void)
             /* 30000: purple ball; 30001+: arcade/2-player weapons and items,
              * which a story game ignores (except the ball's cash) */
             if (ev == 30000) {
-                p->cash += 100;
+                if (game_mode.galaga) mode_collect_buddy(player_num);
+                else {
+                    p->cash += 100;
+                    if (p->purple_balls_needed > 1) p->purple_balls_needed--;
+                    else player_power_up_for(player_num, player_num == 2 ? REAR_WEAPON : FRONT_WEAPON);
+                }
                 enemy_avail[z] = EA_FREE;
-            } else if (ev > 32100) {
+                game.sound_queue[7] = S_POWERUP;
+            } else if (ev > 32100 && player_num == 1) {
                 p->cash += 250;
                 if (ev - 32100 <= SPECIAL_NUM) special_equip(ev - 32100);
                 game.sound_queue[7] = S_POWERUP;
                 enemy_avail[z] = EA_FREE;
             }
         } else if (ev > 20000) {
-            p->armor += ev - 20000;
-            if (p->armor > 28) p->armor = 28;
+            if (game_mode.buddy) {
+                unsigned i;
+                for (i = 0; i < 2; i++) {
+                    uint16_t armor = players[i].armor + (ev - 20000) / 2;
+                    players[i].armor = armor > 28 ? 28 : armor;
+                }
+            } else {
+                uint16_t armor = p->armor + ev - 20000;
+                p->armor = armor > 28 ? 28 : armor;
+            }
             enemy_avail[z] = EA_FREE;
             game.sound_queue[7] = S_POWERUP;
         } else if (ev > 10000 && enemy_avail[z] == EA_ITEM) {
@@ -324,14 +360,11 @@ void player_collide(void)
                 game.cube_max++;
                 game.sound_queue[3] = V_DATA_CUBE;
             }
-            else if (ev == -1) { player_power_up(FRONT_WEAPON); game.sound_queue[7] = S_POWERUP; }
-            else if (ev == -2) { player_power_up(REAR_WEAPON); game.sound_queue[7] = S_POWERUP; }
+            else if (ev == -1) { player_power_up_for(player_num, FRONT_WEAPON); game.sound_queue[7] = S_POWERUP; }
+            else if (ev == -2) { player_power_up_for(player_num, REAR_WEAPON); game.sound_queue[7] = S_POWERUP; }
             else if (ev == -3) {
                 p->shot_multi_pos[SHOT_MISC] = 0;
-                shot_create(0, SHOT_MISC, p->x, p->y, 104, 1);
-            } else if (ev == -3) {
-                p->shot_multi_pos[SHOT_MISC] = 0;
-                shot_create(0, SHOT_MISC, p->x, p->y, 104, 1);
+                shot_create(0, SHOT_MISC, p->x, p->y, 104, player_num);
             } else if (ev == -4) {
                 if (p->superbombs < 10) p->superbombs++;
             } else if (ev == -5) {
@@ -347,7 +380,7 @@ void player_collide(void)
             int16_t armorleft = e->armorleft, armorleft2;
             uint8_t link;
             if (armorleft > game.damage_rate) armorleft = game.damage_rate;
-            player_damage((uint8_t)armorleft);
+            player_damage_for(player_num, (uint8_t)armorleft);
             if (e->armorleft > 0) {
                 p->x_velocity += (e->exc * e->armorleft) / 2;
                 p->y_velocity += (e->eyc * e->armorleft) / 2;
@@ -361,4 +394,9 @@ void player_collide(void)
             }
         }
     }
+}
+
+void player_collide(void)
+{
+    player_collide_for(1);
 }

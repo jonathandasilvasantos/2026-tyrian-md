@@ -637,6 +637,9 @@ static void event_system(void)
         game.boss_link[0] = (uint8_t)ev->dat;
         game.boss_link[1] = (uint8_t)ev->dat2;
         break;
+    case 80:
+        if (game_mode.buddy) game.event_loc += ev->dat;
+        break;
     case 81:
         game.layer[1].wrap = ev->dat / 2;
         game.layer[1].wrap_to = ev->dat2 / 2;

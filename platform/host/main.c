@@ -42,6 +42,10 @@ int main(int argc, char **argv)
         if (mode == 2) mode_galaga();
         game_start_level(level - 1);
     }
+    if (getenv("B68K_BUDDY") && atoi(getenv("B68K_BUDDY"))) {
+        if (!game_mode.galaga) return 2;
+        mode_collect_buddy(1);
+    }
     if (argc > 6) {
         int bombs = atoi(argv[6]);
         if (bombs < 0 || bombs > 10) return 2;

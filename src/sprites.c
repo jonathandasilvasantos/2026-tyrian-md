@@ -39,6 +39,7 @@ static u16 gfx_slots;
 #define SY_OFF 24
 
 static u16 ship_tile, gfx_tile0;
+static u16 buddy_loaded;
 static u16 ship_loaded;          /* (ship << 8 | bank) uploaded, 0xFFFF none */
 static u16 slot_gfx[SPRITES_PIECE_MAX];
 static u16 slot_stamp[SPRITES_PIECE_MAX];
@@ -78,10 +79,10 @@ void sprites_init(u16 first_tile)
     u16 i;
     rot_star = STAR_COUNT - 1;
     frame_velocity = IS_PAL_SYSTEM ? 179 : 149;
-    gfx_slots = SPRITES_PIECE_COUNT(level_bgs[game.level].pool_need);
+    gfx_slots = SPRITES_PIECE_COUNT_RESERVED(level_bgs[game.level].pool_need, SPRITES_BUDDY_TILES);
     big_bank = big_gfx_level[game.level];
     ship_tile = first_tile;
-    gfx_tile0 = first_tile + 12;
+    gfx_tile0 = first_tile + 12 + SPRITES_BUDDY_TILES;
     big_tile0 = gfx_tile0 + GFX_SLOTS * 4;
     for (i = 0; i < BIG_SLOTS; i++) {
         big_slot_gfx[i] = 0xFFFF;
@@ -89,7 +90,7 @@ void sprites_init(u16 first_tile)
     }
     memset(big_slot, 0, sizeof big_slot);
     big_victim = 0;
-    ship_loaded = 0xFFFF;
+    ship_loaded = buddy_loaded = 0xFFFF;
     for (i = 0; i < GFX_SLOTS; i++) {
         slot_gfx[i] = 0xFFFF;
         slot_stamp[i] = 0;
@@ -435,11 +436,31 @@ static void advance(void)
     VDP_updateSprites(n, DMA_QUEUE);
 }
 
+static void draw_ship(const Player *p, u16 tile, u16 *loaded)
+{
+    u16 key;
+    if (!p->is_alive) return;
+    key = (u16)p->ship << 8 | (u8)(p->banking + 2);
+    if (key != *loaded) {
+        dmaq_vram(ship_tiles + ((p->ship - 1) * SHIP_BANK_FRAMES + p->banking + 2) * 96, tile * 32, 192);
+        *loaded = key;
+    }
+    if (!(p->invulnerable_ticks & 2)) {
+        s16 x = lerp(p->px, p->x) - 5 + SX_OFF + 0x80;
+        s16 y = lerp(p->py, p->y) - 7 + SY_OFF + 0x80;
+        VDPSprite *v = &vdpSpriteCache[n];
+        v->y = y;
+        v->size_link = (SPRITE_SIZE(3, 4) << 8) | (n + 1);
+        v->attribut = TILE_ATTR_FULL(PAL2, FALSE, FALSE, FALSE, tile);
+        v->x = x;
+        object_delta(p->x - p->px, p->y - p->py);
+        track(x, y);
+        n++;
+    }
+}
+
 void sprites_update(u16 frac, bool ticked)
 {
-    const Player *p = &players[0];
-    u16 key;
-
     /* Busy scenes (many sprites) rebuild only every other non-tick frame:
      * the full build costs up to ~70k cycles there; in between the list is
      * advanced like on tick frames (new/removed objects show a frame or
@@ -459,25 +480,8 @@ void sprites_update(u16 frac, bool ticked)
     lerp_row = lerp_tab[frac];
     n = 0;
 
-    if (p->is_alive) {
-        key = (u16)p->ship << 8 | (u8)(p->banking + 2);
-        if (key != ship_loaded) {
-            dmaq_vram(ship_tiles + ((p->ship - 1) * SHIP_BANK_FRAMES + p->banking + 2) * 96, ship_tile * 32, 192);
-            ship_loaded = key;
-        }
-        /* invulnerability: blink (the PC blends the ship instead) */
-        if (!(p->invulnerable_ticks & 2)) {
-            s16 x = lerp(p->px, p->x) - 5 + SX_OFF + 0x80, y = lerp(p->py, p->y) - 7 + SY_OFF + 0x80;
-            VDPSprite *v = vdpSpriteCache;
-            v->y = y;
-            v->size_link = (SPRITE_SIZE(3, 4) << 8) | 1;
-            v->attribut = TILE_ATTR_FULL(PAL2, FALSE, FALSE, FALSE, ship_tile);
-            v->x = x;
-            object_delta(p->x - p->px, p->y - p->py);
-            track(x, y);
-            n = 1;
-        }
-    }
+    draw_ship(&players[0], ship_tile, &ship_loaded);
+    if (game_mode.buddy) draw_ship(&players[1], ship_tile + 12, &buddy_loaded);
     sp = &vdpSpriteCache[n];
     draw_enemy_shots();
     draw_zinglon();

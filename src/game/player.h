@@ -35,7 +35,7 @@ typedef struct {
     int16_t delta_x_shot_move, delta_y_shot_move;
     int8_t banking;                /* -2..2, ship sprite */
     uint8_t ship;                  /* items.ship */
-    uint8_t generator;
+    uint8_t generator, purple_balls_needed; /* occupies prior word-alignment padding */
     uint16_t weapon_id[2];         /* front / rear port */
     uint8_t weapon_power[2];       /* 1..11 */
     uint8_t weapon_mode;           /* rear mode 1..opnum */
@@ -49,16 +49,19 @@ typedef struct {
     uint32_t cash;
 } Player;
 
-extern Player players[1];
+extern Player players[2];
 
 void player_init(void);          /* new game items */
 void player_start_level(void);
 void player_tick(uint16_t pad);
 /* JE_playerCollide: ship against enemies and items */
 void player_collide(void);
+void player_collide_for(uint8_t player_num);
 /* JE_playerDamage: returns the damage taken through shields (0 if absorbed) */
 uint8_t player_damage(uint8_t dmg);
+uint8_t player_damage_for(uint8_t player_num, uint8_t dmg);
 /* power_up_weapon */
 uint8_t player_power_up(uint8_t port);
+uint8_t player_power_up_for(uint8_t player_num, uint8_t port);
 
 #endif

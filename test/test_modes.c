@@ -9,6 +9,7 @@
 #include "game/level.h"
 #include "game/enemy.h"
 #include "game/rng.h"
+#include "game/shots.h"
 #include "gen_data/level.h"
 #include "gen_data/items.h"
 static unsigned failures;
@@ -84,10 +85,96 @@ static void test_mode_events(void)
     CHECK(rng_state == expected && e->launchwait == 1); /* moving: exactly one sample */
 }
 
+
+static unsigned buddy_shots(void)
+{
+    unsigned i, count = 0;
+    for (i = 0; i < PLAYER_SHOT_MAX; i++)
+        if (player_shots[i].avail && player_shots[i].player == 2) count++;
+    return count;
+}
+
+static void pickup(uint8_t who, int16_t value)
+{
+    Enemy *e = &enemies[0];
+    enemies_init();
+    *e = (Enemy){0};
+    enemy_avail[0] = EA_ITEM;
+    e->ex = players[who - 1].x; e->ey = players[who - 1].y;
+    e->evalue = value; e->scoreitem = 1;
+    player_collide_for(who);
+    CHECK(enemy_avail[0] == EA_FREE);
+}
+
+static void test_buddy(void)
+{
+    Player *p = &players[0], *b = &players[1];
+    unsigned i;
+    game_new(1, DIFFICULTY_NORMAL); mode_engage(); mode_galaga(); game_start_level(17);
+    CHECK(b->weapon_id[1] == 15 && b->weapon_power[1] == 1);
+    CHECK(!b->option_id[0] && !b->option_id[1] && b->x == 190 && b->invulnerable_ticks == 100);
+    pickup(1, 30000);
+    CHECK(game_mode.buddy && p->cash == 100 && b->armor == 10 && b->is_alive);
+    game_mode.charge = 3; game_mode.link_phase = 12345; b->invulnerable_ticks = 45;
+    pickup(2, 30000);
+    CHECK(b->cash == 2500 && p->cash == 100 && game_mode.charge == 3);
+    CHECK(game_mode.link_phase == 12345 && b->invulnerable_ticks == 45);
+    game_mode.link_phase = 0x80000000u; game_mode.charge = 0;
+    p->x = 120; p->y = 100; shots_init();
+    mode_buddy_tick(0);
+    CHECK(b->x == p->x - (ships[b->ship].ani == 0) && b->y == 108);
+    CHECK(buddy_shots() == 3 && b->invulnerable_ticks == 44);
+    { static const uint16_t pads[] = {PAD_RIGHT, PAD_DOWN, PAD_LEFT, PAD_UP};
+      static const uint32_t phases[] = {0x40000000u, 0, 0xC0000000u, 0x80000000u};
+      for (i = 0; i < 4; i++) {
+          unsigned j;
+          for (j = 0; j < 32; j++) { shots_init(); mode_buddy_tick(PAD_B | pads[i]); }
+          CHECK(game_mode.link_phase == phases[i]);
+      }
+    }
+    shots_init(); game.power = 900; game_mode.charge = 5; game_mode.charge_wait = 1;
+    b->shot_repeat[1] = b->shot_repeat[5] = 0;
+    mode_buddy_tick(PAD_B);
+    CHECK(buddy_shots() == 12 && !game_mode.charge && game_mode.charge_wait == 28);
+    p->x = 40; p->y = 40; b->x = 120; b->y = 100;
+    b->invulnerable_ticks = 0; b->armor = 10;
+    enemy_shots[0] = (EnemyShot){.sx=120,.sy=100,.sdmg=3,.duration=10};
+    enemy_shots_update();
+    CHECK(enemy_shots[0].avail && b->armor == 7 && p->armor == p->initial_armor);
+    p->armor = 20; b->armor = 10; pickup(2, 20005);
+    CHECK(p->armor == 22 && b->armor == 12);
+    pickup(1, 20999); CHECK(p->armor == 28 && b->armor == 28);
+    { uint32_t cash = p->cash, buddy_cash = b->cash;
+      Enemy *e = &enemies[0]; PlayerShot *shot = &player_shots[0];
+      pickup(2, 50); CHECK(b->cash == buddy_cash + 50 && p->cash == cash);
+      enemies_init(); shots_init();
+      *e = (Enemy){0}; enemy_avail[0] = EA_ACTIVE;
+      e->ex = 100; e->ey = 86; e->enemycycle = 1; e->armorleft = 1; e->evalue = 50;
+      *shot = (PlayerShot){.x=100,.y=80,.gr=1,.avail=5,.ani_max=1,.player=2,.dmg=2,.trail=255};
+      shots_move();
+      CHECK(enemy_avail[0] == EA_FREE && p->cash == cash + 50 && b->cash == buddy_cash + 50);
+    }
+    b->armor = 0; mode_tick(); CHECK(!game_mode.buddy);
+    mode_collect_buddy(1); p->is_alive = 0; p->weapon_power[0] = 2;
+    CHECK(mode_respawn() && !game_mode.buddy);
+
+    game_new(1, DIFFICULTY_NORMAL); game_start_level(LEVEL_FIRST);
+    CHECK(p->purple_balls_needed == 1);
+    { uint32_t cash = p->cash;
+      pickup(1, 30000); CHECK(p->weapon_power[0] == 2 && p->purple_balls_needed == 2);
+      pickup(1, 30000); CHECK(p->weapon_power[0] == 2 && p->purple_balls_needed == 1);
+      pickup(1, 30000); CHECK(p->weapon_power[0] == 3 && p->purple_balls_needed == 4);
+      CHECK(p->cash == cash + 300);
+      pickup(1, 30000); CHECK(p->purple_balls_needed == 3);
+      game_start_level(LEVEL_FIRST); CHECK(p->purple_balls_needed == 4);
+    }
+}
+
 int main(void)
 {
     uint8_t episode;
     test_mode_events();
+    test_buddy();
     for (episode = 1; episode <= 4; episode++) {
         Player *p = &players[0];
         unsigned i;
@@ -145,6 +232,6 @@ int main(void)
         CHECK(game_mode.arcade && game_mode.super_tyrian);
     }
     if (failures) return 1;
-    puts("   PASS  scripted modes (ENGAGE, lives, rewards, backup, 21 combos)");
+    puts("   PASS  scripted modes (ENGAGE, lives, linked ship, purple balls, backup, 21 combos)");
     return 0;
 }

@@ -148,7 +148,7 @@ int enemy_new(int offset, uint16_t edat, int16_t unique_bank)
     return 0;
 }
 
-static void fire(Enemy *e, int j, uint8_t t, int16_t tx, int16_t ty, int16_t map_x_ofs, int16_t player_x)
+static void fire(Enemy *e, int j, uint8_t t, int16_t tx, int16_t ty, int16_t map_x_ofs)
 {
     const Weapon *w = &weapons[t];
     int count;
@@ -198,9 +198,14 @@ static void fire(Enemy *e, int j, uint8_t t, int16_t tx, int16_t ty, int16_t map
         }
         if (w->aim > 0) {
             int16_t aim = w->aim;
-            int16_t ax = (player_x + 25) - tx - map_x_ofs - 4;
-            int16_t ay = players[0].y - ty;
-            int16_t mag;
+            const Player *target = &players[0];
+            int16_t ax, ay, mag;
+            if (game_mode.buddy) {
+                if (!players[0].is_alive && players[1].is_alive) target = &players[1];
+                else if (!(players[0].is_alive && !players[1].is_alive) && rng_mod(2)) target = &players[1];
+            }
+            ax = target->x - tx - map_x_ofs - 4;
+            ay = target->y - ty;
             if (game.difficulty > DIFFICULTY_NORMAL) aim += game.difficulty - 2;
             if (ax == 0) ax = 1;
             if (ay == 0) ay = 1;
@@ -351,10 +356,14 @@ void enemies_update(int offset, int16_t map_x_ofs, int16_t back_move)
                 case 253:   /* short range magnets */
                     if (iabs(player_x + 25 - 14 - tx) < 24 && iabs(players[0].y - ty) < 28)
                         players[0].x_velocity += 2;
+                    if (game_mode.buddy && iabs(players[1].x - 14 - tx) < 24 && iabs(players[1].y - ty) < 28)
+                        players[1].x_velocity += 2;
                     break;
                 case 254:
                     if (iabs(player_x + 25 - 14 - tx) < 24 && iabs(players[0].y - ty) < 28)
                         players[0].x_velocity -= 2;
+                    if (game_mode.buddy && iabs(players[1].x - 14 - tx) < 24 && iabs(players[1].y - ty) < 28)
+                        players[1].x_velocity -= 2;
                     break;
                 case 255:   /* magneto repulse */
                     if (game.difficulty != DIFFICULTY_EASY) {
@@ -367,7 +376,7 @@ void enemies_update(int offset, int16_t map_x_ofs, int16_t back_move)
                     }
                     break;
                 default:
-                    fire(e, j, t, tx, ty, map_x_ofs, player_x);
+                    fire(e, j, t, tx, ty, map_x_ofs);
                     break;
                 }
             }
@@ -452,6 +461,20 @@ void enemy_shots_update(void)
                 p->y_velocity += (s->sym * dmg) / 2;
             }
             continue;
+        }
+        if (game_mode.buddy && players[1].is_alive) {
+            Player *b = &players[1];
+            if (s->sx > b->x - b->hit_area_x && s->sx < b->x + b->hit_area_x &&
+                s->sy > b->y - b->hit_area_y && s->sy < b->y + b->hit_area_y) {
+                uint8_t dmg = s->sdmg;
+                s->avail = 1;
+                explosion_setup(s->sx, s->sy, 0, 0, 0, 0);
+                if (!b->invulnerable_ticks && (dmg = player_damage_for(2, dmg)) > 0) {
+                    b->x_velocity += (s->sxm * dmg) / 2;
+                    b->y_velocity += (s->sym * dmg) / 2;
+                }
+                continue;
+            }
         }
         if (s->animax != 0 && ++s->animate >= s->animax) s->animate = 0;
     }

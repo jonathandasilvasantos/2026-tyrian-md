@@ -30,6 +30,7 @@
  * tilemaps at 0xC000), which holds the HUD font. */
 #define HUD_VRAM_TILES 28
 _Static_assert(TILE_USER_INDEX + BG_POOL_NEED + 12 + SPRITES_PIECE_COUNT(BG_POOL_NEED) * 4 + SPRITES_BIG_SLOTS * 12 + HUD_VRAM_TILES <= 0xC000 / 32 - 96, "VRAM over budget");
+_Static_assert(TILE_USER_INDEX + BG_POOL_NEED + 24 + SPRITES_PIECE_COUNT_RESERVED(BG_POOL_NEED, 12) * 4 + SPRITES_BIG_SLOTS * 12 + HUD_VRAM_TILES <= 0xC000 / 32 - 96, "linked-ship VRAM over budget");
 
 /* State hash after the latest tick; tools/bench68k reads it by symbol to
  * compare the ROM with the host build on the same replay. */
@@ -42,7 +43,7 @@ volatile u8 debug_episode;
 volatile u8 debug_loadout, debug_left_option, debug_right_option, debug_bombs, debug_special;
 /* Headless runner compares a fixed number of ticks, including after death. */
 volatile u8 debug_hold_level, debug_checkpoint;
-volatile u8 debug_story_page, debug_story_picture, debug_cubes, debug_mode;
+volatile u8 debug_story_page, debug_story_picture, debug_cubes, debug_mode, debug_buddy;
 
 /* game_tick: one simulation step.  Kept as a real function (noinline) so
  * tools/bench68k can count ticks and feed replay pads by its address. */
@@ -95,6 +96,7 @@ static u8 play_level(const FlowStep *st)
         if (!password_load(code)) SYS_die("Checkpoint validation failed");
         game_start_level(st->level);
     }
+    if (debug_buddy && game_mode.galaga) mode_collect_buddy(1);
     if (debug_bombs) players[0].superbombs = debug_bombs <= 10 ? debug_bombs : 10;
     if (debug_special) special_equip(debug_special);
     level_screen_setup(level_names[st->name]);
@@ -134,7 +136,8 @@ static u8 play_level(const FlowStep *st)
         SYS_doVBlankProcess();
         if (debug_hold_level) continue;
         if (game.really_end_level) return 0;
-        if (!players[0].is_alive && players[0].exploding_ticks == 0) return 1;
+        if (!players[0].is_alive && players[0].exploding_ticks == 0 &&
+            !(game_mode.buddy && players[1].is_alive)) return 1;
     }
 }
 

@@ -169,11 +169,14 @@ void hud_update(void)
         num(buf + 3, shown_front, 2);
         put_text(COL0, 14, p->weapon_id[0] ? buf : "-", 6);
     }
-    if (dirty || p->weapon_power[1] != shown_rear) {
-        shown_rear = p->weapon_power[1];
-        strcpy(buf, "LV  ");
-        num(buf + 3, shown_rear, 2);
-        put_text(COL0, 17, p->weapon_id[1] ? buf : "-", 6);
+    {
+        u8 rear = game_mode.buddy ? 0x80 | game_mode.charge : p->weapon_power[1];
+        if (dirty || rear != shown_rear) {
+            shown_rear = rear;
+            strcpy(buf, game_mode.buddy ? "CHG " : "LV  ");
+            num(buf + 3, game_mode.buddy ? game_mode.charge : p->weapon_power[1], 2);
+            put_text(COL0, 17, game_mode.buddy || p->weapon_id[1] ? buf : "-", 6);
+        }
     }
     {
         u16 i;

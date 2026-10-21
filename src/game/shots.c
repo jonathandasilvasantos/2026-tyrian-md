@@ -10,6 +10,7 @@
 #include "level.h"
 #include "special.h"
 #include "particles.h"
+#include "mode.h"
 #include "gen_data/items.h"
 #include "gen_data/shot_shapes.h"
 
@@ -25,11 +26,12 @@ static int16_t iabs16(int16_t v) { return v < 0 ? -v : v; }
 
 int shot_create(uint16_t port, uint8_t bay, int16_t px, int16_t py, uint16_t wpn, uint8_t player_num)
 {
-    Player *pl = &players[player_num - 1];
+    Player *pl;
     const Weapon *w;
     int shot_id = PLAYER_SHOT_MAX, multi;
 
-    if (port > PORT_NUM || wpn == 0 || wpn > WEAP_NUM) return PLAYER_SHOT_MAX;
+    if (player_num < 1 || player_num > 2 || port > PORT_NUM || wpn == 0 || wpn > WEAP_NUM) return PLAYER_SHOT_MAX;
+    pl = &players[player_num - 1];
     w = &weapons[wpn];
     if (game.power < weapon_ports[port].poweruse) return PLAYER_SHOT_MAX;
     game.power -= weapon_ports[port].poweruse;
@@ -179,7 +181,7 @@ static void kill_linked(int b, uint8_t link, uint8_t player_num)
         }
         if (e->evalue > 0 && e->evalue < 10000) {
             if (e->evalue == 1) game.cube_max++;
-            else players[player_num - 1].cash += e->evalue;
+            else players[game_mode.galaga ? 0 : player_num - 1].cash += e->evalue;
         }
         if (e->edlevel == -1 && link == l3) {
             e->edlevel = 0;

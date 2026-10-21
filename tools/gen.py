@@ -600,7 +600,7 @@ def gen_sprites(out, it, lvls, bg_pals):
 
     wids = {w for p in it["ports"][1:] for m in p["op"] for w in m}
     wids |= {s["wpn"] for s in it["specials"] if s["stype"] in (1, 5, 6, 7, 8, 9, 10, 11, 16)}
-    wids |= {104, 535}  # orbiting asteroid killer pickup / superbomb
+    wids |= {104, 535, 147, 148, 449, 470, 471, 472, 473, 474, 475}  # pickups, bombs, GALAGA link/charge
     wids |= {o["wpnum"] + charge for o in it["options"][1:] for charge in range(o["pwr"] + 1)}
     def level_banks(lvl):
         return {d for e in lvl.events if e.type == 5 for d in (e.dat, e.dat2, e.dat3, e.dat4) if 0 < d <= 34}

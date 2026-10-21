@@ -1,6 +1,9 @@
 # episode mode level hash (600 ticks, sidekicks.txt; both regions)
 # ENGAGE equipment and the original scripted bonus levels.
-1 1 9 38d4f147
-1 2 18 8bc04f3e
-4 1 17 a0e0044f
-4 2 18 7a2fea2e
+1 1 9 02e985eb
+1 2 18 152232b5
+4 1 17 c6f64aed
+4 2 18 e987c013
+# Pickup present from level start: linked gun, charge levels and collisions.
+1 2 18 1 46d57644
+4 2 18 1 3f144171

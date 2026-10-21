@@ -75,3 +75,22 @@ def test_superbomb_chain_artwork_dependencies():
 def test_weapon_dependency_cycles_and_invalid_ids():
     it = {"weapons": [{"attack": []}, {"attack": [102]}, {"attack": [101]}]}
     assert items.weapon_dependencies(it, {0, 1, 999}) == {1, 2}
+
+
+@pytest.mark.parametrize("episode", [1, 4])
+def test_galaga_pickup_graph_keeps_original_vulcan_link_gun(episode):
+    """Both scripted GALAGA stages retain port 15: no rear-port pickup exists."""
+    lvl = level.load_level(episode, 18)
+    enemies = items.load_items(episode)["enemies"]
+    reachable = set(lvl.enemies)
+    reachable.update(e.dat for e in lvl.events if e.type in (6, 7, 10, 33))
+    pending = list(reachable)
+    while pending:
+        enemy = enemies[pending.pop()]
+        for child in (enemy["eenemydie"], enemy["elaunchtype"]):
+            if child and child not in reachable:
+                reachable.add(child)
+                pending.append(child)
+    pickups = {enemies[i]["value"] for i in reachable if
+               enemies[i]["value"] < 0 or enemies[i]["value"] >= 20000}
+    assert pickups == ({30000, -4} if episode == 1 else {30000})

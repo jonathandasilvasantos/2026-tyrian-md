@@ -66,7 +66,9 @@ static void activate(uint8_t id, uint8_t cost)
         if (p->armor > 28) p->armor = 28;
         game.sound_queue[3] = S_POWERUP;
         break;
-    case 14: /* Repair P2 has no visible recipient in the single-player engine. */
+    case 14:
+        players[1].armor += cost / 4 + 1;
+        if (players[1].armor > 28) players[1].armor = 28;
         game.sound_queue[3] = S_POWERUP;
         break;
     case 17: case 18: {

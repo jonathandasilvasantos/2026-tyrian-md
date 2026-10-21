@@ -107,8 +107,13 @@ void game_step(uint16_t pad)
     shots_move();
     p->last_x_shot_move = p->x;
     p->last_y_shot_move = p->y;
+    if (game_mode.buddy) {
+        players[1].last_x_shot_move = players[1].x;
+        players[1].last_y_shot_move = players[1].y;
+    }
 
     if (p->is_alive && !game.end_level) player_collide();
+    if (game_mode.buddy && players[1].is_alive && !game.end_level) player_collide_for(2);
     player_tick(pad);
 
     if (!game.end_level) enemy_shots_update();
@@ -211,6 +216,22 @@ uint32_t game_hash(void)
         h = mix(h, game_mode.shot_frequency | (uint32_t)game_mode.no_backup << 8);
         if (game_mode.super_tyrian)
             for (i = 3; i < 21; i++) h = mix(h, special_state.combo[i]);
+    }
+    if (p->purple_balls_needed != 1) h = mix(h, 0xBA110000u | p->purple_balls_needed);
+    if (game_mode.galaga) {
+        h = mix(h, game_mode.buddy | (uint32_t)game_mode.charge << 8 | (uint32_t)game_mode.charge_wait << 16);
+        h = mix(h, game_mode.link_phase);
+        {
+            const Player *b = &players[1];
+            h = mix(h, b->armor | (uint32_t)b->is_alive << 8 | (uint32_t)b->invulnerable_ticks << 16);
+            h = mix(h, (uint16_t)b->x | (uint32_t)(uint16_t)b->y << 16);
+            h = mix(h, b->cash);
+            h = mix(h, (uint16_t)b->delta_x_shot_move | (uint32_t)(uint16_t)b->delta_y_shot_move << 16);
+            for (i = 0; i < SHOT_BAYS; i++)
+                h = mix(h, b->shot_repeat[i] | (uint16_t)b->shot_multi_pos[i] << 8);
+            h = mix(h, b->superbombs);
+            h = mix(h, b->weapon_id[1] | (uint32_t)b->weapon_power[1] << 16 | (uint32_t)b->purple_balls_needed << 24);
+        }
     }
     if (particles.last || particles.live) {
         h = mix(h, 0x5F000000u | particles.last | (uint32_t)particles.live << 8);
