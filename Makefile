@@ -14,13 +14,13 @@ GDK      ?= $(CURDIR)/sgdk
 ROM      := out/rom.bin
 CC       := cc
 NPROC    := $(shell sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 4)
-# DEBUG_WEAPONS: START/A cycle the front weapon and its power (until the shop)
-GAME_FLAGS := -DDEBUG_WEAPONS
+# Optional compile-time flags; release weapons follow the equipped loadout.
+GAME_FLAGS ?=
 HOST_CFLAGS := -std=c11 -O2 -Wall -Wextra -Werror -Isrc $(GAME_FLAGS)
 ROM_EXTRA_FLAGS := -fno-strict-aliasing -Wno-unterminated-string-initialization $(GAME_FLAGS)
 JAVA_HEADLESS_TOOL_OPTIONS := -Djava.awt.headless=true
 
-GAME_SRCS := $(wildcard src/game/*.c) src/gen_data/items.c src/gen_data/level.c src/gen_data/script.c src/gen_data/episode_tables.c
+GAME_SRCS := $(wildcard src/game/*.c) src/gen_data/items.c src/gen_data/level.c src/gen_data/script.c src/gen_data/episode_tables.c src/gen_data/motion.c src/gen_data/shot_shapes.c
 GAME_HDRS := $(wildcard src/game/*.h)
 
 EPISODE     ?= 1
@@ -28,7 +28,7 @@ BENCH_TICKS ?= 600
 REPLAY      ?= test/replays/boot.txt
 MUSASHI_REV := 313ebf1bd9f4d0d93341eb5ce21fd8a119e9dbdd
 
-.PHONY: all music setup-sgdk gen rom rom-demo host unit-test py-test test bench-68k parity parity-episodes parity-pal clean
+.PHONY: all music setup-sgdk gen rom rom-demo host unit-test py-test test bench-68k parity parity-episodes parity-sidekicks parity-pal clean
 
 all: rom
 
@@ -93,11 +93,11 @@ rom-demo:
 host: gen
 	@$(MAKE) --no-print-directory out/tyrian_host
 
-out/tyrian_host: platform/host/main.c $(GAME_SRCS) $(GAME_HDRS) src/gen_data/items.h
+out/tyrian_host: platform/host/main.c $(GAME_SRCS) $(GAME_HDRS) src/gen_data/items.h Makefile
 	@mkdir -p out
 	$(CC) $(HOST_CFLAGS) platform/host/main.c $(GAME_SRCS) -o $@
 
-out/test_game: test/test_game.c $(GAME_SRCS) $(GAME_HDRS)
+out/test_game: test/test_game.c $(GAME_SRCS) $(GAME_HDRS) Makefile
 	@mkdir -p out
 	$(CC) $(HOST_CFLAGS) test/test_game.c $(GAME_SRCS) -o $@
 
@@ -160,12 +160,15 @@ parity-episodes: out/bench68k out/rom.syms out/tyrian_host
 	@./out/bench68k --self-test-mapper
 	@for ep in 1 2 3 4; do $(MAKE) --no-print-directory parity EPISODE=$$ep || exit $$?; done
 
+parity-sidekicks: out/bench68k out/rom.syms out/tyrian_host
+	@python3 tools/check_replays.py test/replays/sidekicks.hashes test/replays/sidekicks.txt
+
 parity-pal: out/bench68k out/rom.syms out/tyrian_host
 	@echo "   PAL replay checks"
-	@B68K_PAL=1 $(MAKE) --no-print-directory parity-episodes
+	@B68K_PAL=1 $(MAKE) --no-print-directory parity-episodes parity-sidekicks
 
 test: rom
-	@$(MAKE) --no-print-directory py-test out/test_game parity-episodes parity-pal
+	@$(MAKE) --no-print-directory py-test out/test_game parity-episodes parity-sidekicks parity-pal
 	@./out/test_game
 
 clean:

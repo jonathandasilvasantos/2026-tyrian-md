@@ -116,12 +116,13 @@ static const char *item_name_full(u8 cat, u16 item)
     case SHOP_REAR: return item == 0 ? "None" : (item <= PORT_NUM ? port_names[item] : "?");
     case SHOP_GENERATOR: return item <= POWER_NUM ? power_names[item] : "?";
     case SHOP_SHIELD: return item <= SHIELD_NUM ? shield_names[item] : "?";
+    case SHOP_LEFT_OPTION: case SHOP_RIGHT_OPTION: return item <= OPTION_NUM ? option_names[item] : "?";
     }
     return "";
 }
 
-static const u8 cats[5] = { SHOP_FRONT, SHOP_REAR, SHOP_GENERATOR, SHOP_SHIELD, SHOP_SHIP };
-static const char *const cat_names[5] = { "Front", "Rear", "Power", "Shield", "Ship" };
+static const u8 cats[7] = { SHOP_FRONT, SHOP_REAR, SHOP_GENERATOR, SHOP_SHIELD, SHOP_SHIP, SHOP_LEFT_OPTION, SHOP_RIGHT_OPTION };
+static const char *const cat_names[7] = { "Front", "Rear", "Power", "Shield", "Ship", "Left option", "Right option" };
 
 /* list the items of a category; returns when the player buys or backs out */
 static void category_screen(const Shop *sh, u8 cat, const char *title)
@@ -180,10 +181,10 @@ static void category_screen(const Shop *sh, u8 cat, const char *title)
 u8 shop_screen(u8 shop_index)
 {
     const Shop *sh = &shops[shop_index];
-    u8 rows[6], nrows = 0, sel, dest = 0, i, redraw = 1;
+    u8 rows[8], nrows = 0, sel, dest = 0, i, redraw = 1;
     char line[48], buf[12];
 
-    for (i = 0; i < 5; i++)
+    for (i = 0; i < 7; i++)
         if (sh->count[cats[i]]) rows[nrows++] = i;
     sel = nrows;   /* start on Launch */
 #ifdef AUTOPLAY

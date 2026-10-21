@@ -10,6 +10,7 @@
 #include "game/episode.h"
 #include "game/rng.h"
 #include "game/timing.h"
+#include "game/sidekick.h"
 #include "gen_data/items.h"
 #include "gen_data/episodes.h"
 #include "gen_data/script.h"
@@ -159,12 +160,15 @@ static void test_episode_transition(void)
     players[0].ship = 3;
     players[0].weapon_id[0] = 17;
     players[0].weapon_power[0] = 8;
+    players[0].option_id[0] = 3;
+    players[0].option_id[1] = 30;
     for (ep = 2; ep <= 4; ep++) {
         uint32_t saved_rng = rng_state;
         game_next_episode();
         CHECK(LEVEL_EPISODE == ep);
         CHECK(players[0].cash == 123456 && players[0].ship == 3);
         CHECK(players[0].weapon_id[0] == 17 && players[0].weapon_power[0] == 8);
+        CHECK(players[0].option_id[0] == 3 && players[0].option_id[1] == 30);
         CHECK(rng_state == saved_rng);
         CHECK(script.section == 1 && script.save_section == 1 && script.choices == 0);
     }
@@ -201,6 +205,103 @@ static void test_pal_and_ntsc_timing(void)
     CHECK(hashes[0] == hashes[1]);
 }
 
+static void equip_sidekicks(uint8_t left, uint8_t right)
+{
+    test_init();
+    players[0].option_id[0] = left;
+    players[0].option_id[1] = right;
+    game_start_level(LEVEL_FIRST);
+    game.power = 900;
+}
+
+static void test_sidekick_shop(void)
+{
+    uint32_t budget;
+    test_init();
+    players[0].cash = 100000;
+    CHECK(shop_buy(SHOP_LEFT_OPTION, 3, 1));
+    CHECK(players[0].option_id[0] == 3);
+    budget = players[0].cash + option_cost[3];
+    CHECK(shop_buy(SHOP_LEFT_OPTION, 0, 1));
+    CHECK(players[0].cash == budget && players[0].option_id[0] == 0);
+    CHECK(shop_buy(SHOP_RIGHT_OPTION, 6, 1));
+    CHECK(players[0].option_id[1] == 6);
+    budget = players[0].cash;
+    CHECK(!shop_buy(SHOP_RIGHT_OPTION, OPTION_NUM + 1, 1));
+    CHECK(players[0].cash == budget && players[0].option_id[1] == 6);
+}
+
+static void test_sidekick_charge_and_ammo(void)
+{
+    unsigned i;
+    equip_sidekicks(3, 6); /* charge cannon and five-ammo MegaMissile */
+    for (i = 0; i < 40; i++) sidekicks_animate();
+    CHECK(players[0].sidekick[0].charge == 2);
+    sidekicks_tick(0); /* initial shot cooldown */
+    sidekicks_tick(PAD_B);
+    CHECK(players[0].sidekick[0].charge == 0);
+    CHECK(players[0].sidekick[1].ammo == 5); /* main fire cannot use finite ammo */
+    CHECK(live_shots() > 0);
+    sidekicks_tick(PAD_Z);
+    CHECK(players[0].sidekick[1].ammo == 4);
+    players[0].shot_repeat[SHOT_RIGHT_SIDEKICK] = 0;
+    players[0].sidekick[1].refill_ticks = 0;
+    sidekicks_tick(0);
+    CHECK(players[0].sidekick[1].ammo == 5);
+    CHECK(players[0].sidekick[1].refill_ticks == 400); /* (105 - 5) * 4 */
+    equip_sidekicks(6, 6);
+    sidekicks_tick(0);
+    sidekicks_tick(PAD_THREE_BUTTON | PAD_A);
+    CHECK(players[0].sidekick[0].ammo == 4 && players[0].sidekick[1].ammo == 4);
+}
+
+static void test_sidekick_movement(void)
+{
+    unsigned i;
+    equip_sidekicks(19, 20); /* trailing companion and launchable attachment */
+    player_tick(PAD_RIGHT);
+    CHECK(players[0].sidekick[0].x == 91 && players[0].sidekick[0].y == 162);
+    CHECK(players[0].sidekick[1].x == players[0].x);
+    CHECK(players[0].sidekick[1].y == players[0].y - 20);
+    player_tick(PAD_Z);
+    CHECK(!players[0].attachment_linked && players[0].attachment_move == -20);
+    for (i = 0; i < 300 && !players[0].attachment_linked; i++) player_tick(0);
+    CHECK(players[0].attachment_linked);
+    equip_sidekicks(30, 30);
+    player_tick(0);
+    CHECK(players[0].sidekick[0].x - players[0].x == 4);
+    CHECK(players[0].sidekick[1].x - players[0].x == -4);
+    CHECK(players[0].sidekick[0].y - players[0].y == 20);
+    CHECK(players[0].sidekick[1].y - players[0].y == -20);
+}
+
+static void test_large_projectile_collision(void)
+{
+    unsigned special;
+    for (special = 0; special < 2; special++) {
+        PlayerShot *s;
+        Enemy *e;
+        test_init();
+        e = &enemies[0];
+        *e = (Enemy){0};
+        enemy_avail[0] = EA_ACTIVE;
+        e->enemycycle = 1;
+        e->ex = 150;
+        e->ey = 118;
+        e->armorleft = 10;
+        s = &player_shots[0];
+        *s = (PlayerShot){0};
+        s->x = s->y = 100;
+        s->gr = special ? 60023 : 1; /* 62x24 Plasma Storm versus a small bullet */
+        s->avail = 5;
+        s->ani_max = s->player = s->dmg = 1;
+        s->trail = 255;
+        shots_move();
+        CHECK(e->armorleft == (special ? 9 : 10));
+        CHECK(s->frame == (special ? 60023 : 1));
+    }
+}
+
 int main(void)
 {
     for (test_episode = 1; test_episode <= EPISODE_COUNT; test_episode++) {
@@ -215,6 +316,10 @@ int main(void)
         test_events_follow_cur_loc();
         test_script_walk();
         test_shop_trade_in();
+        test_sidekick_shop();
+        test_sidekick_charge_and_ammo();
+        test_sidekick_movement();
+        test_large_projectile_collision();
     }
     test_episode_transition();
     test_pal_and_ntsc_timing();

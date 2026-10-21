@@ -16,6 +16,7 @@
 
 static u16 bar_tile, solid_tile;
 static u32 shown_cash;
+static u16 shown_option[2];
 static u8 shown_armor, shown_shield, shown_power, shown_front, shown_rear, dirty;
 static u32 text_until; /* game tick deadline, independent of redraw rate */
 static u16 shown_boss;           /* armor shown on the boss bar + 1, 0 = hidden */
@@ -80,6 +81,7 @@ void hud_init(u16 first_tile, const char *level_name)
     put_text(COL0, 10, "POWER", 6);
     put_text(COL0, 13, "FRONT", 6);
     put_text(COL0, 16, "REAR", 6);
+    put_text(COL0, 19, "OPTION", 6);
     put_text(COL0, 23, level_name, 6);
     put_text(COL0, 24, strlen(level_name) > 6 ? level_name + 6 : "", 6);
     dirty = 1;
@@ -159,6 +161,26 @@ void hud_update(void)
         strcpy(buf, "LV  ");
         num(buf + 3, shown_rear, 2);
         put_text(COL0, 17, p->weapon_id[1] ? buf : "-", 6);
+    }
+    {
+        u16 i;
+        for (i = 0; i < 2; i++) {
+            const Sidekick *s = &p->sidekick[i];
+            u16 state = ((u16)p->option_id[i] << 10) | ((u16)s->charge << 7) | s->ammo;
+            if (dirty || state != shown_option[i]) {
+                shown_option[i] = state;
+                if (!p->option_id[i]) strcpy(buf, i ? "R NONE" : "L NONE");
+                else {
+                    buf[0] = i ? 'R' : 'L';
+                    if (s->ammo_max) num(buf + 1, s->ammo, 3);
+                    else memcpy(buf + 1, "INF", 3);
+                    buf[4] = 'C';
+                    buf[5] = '0' + s->charge;
+                    buf[6] = 0;
+                }
+                put_text(COL0, 20 + i, buf, 6);
+            }
+        }
     }
     if (game.window_text) {   /* JE_drawTextWindow: textErase = 100 game ticks */
         hud_message(window_texts[game.window_text - 1]);

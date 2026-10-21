@@ -1,0 +1,9 @@
+# Episode left-option right-option hash, 600 ticks of sidekicks.txt.
+# Charge + finite ammo; single orbit; dual orbit; large companions; small trailers.
+1 3 6 16cda06c
+2 30 1 3f0efbb5
+3 30 30 b2edf1eb
+4 19 20 04fc0251
+1 16 29 ad57d73a
+# Plasma Storm: large OPTION_SHAPES artwork and matching wide collision.
+1 9 9 1ac3a7f6

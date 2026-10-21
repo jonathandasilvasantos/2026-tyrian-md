@@ -1,7 +1,7 @@
 /* shots.c — player shot creation and movement, ported from OpenTyrian
  * shots.c (player_shot_create, player_shot_move_and_draw).
  * and the shot-versus-enemy part of tyrian2.c:JE_main.
- * Not ported yet: sound queue, OPTION_SHAPES specials (gr > 60000), JE_doSP
+ * Not ported yet: JE_doSP
  * sparkles (gr > 1000 draws only the mod-1000 frame), Zinglon (slot 80). */
 #include "shots.h"
 #include "game.h"
@@ -9,6 +9,7 @@
 #include "enemy.h"
 #include "level.h"
 #include "gen_data/items.h"
+#include "gen_data/shot_shapes.h"
 
 PlayerShot player_shots[PLAYER_SHOT_MAX];
 
@@ -280,19 +281,29 @@ static void build_active(void)
 static int shot_hits(PlayerShot *s)
 {
     int k, b, full = 0;
+    int16_t radius_x = 0, radius_y = 0, center_x = s->x;
+    uint16_t broad_width, broad_offset;
+    if (s->frame > 60000 && s->frame - 60001 < OPTION_SHAPE_COUNT) {
+        uint16_t shape = s->frame - 60001;
+        radius_x = option_shape_width[shape] >> 1;
+        radius_y = option_shape_height[shape] >> 1;
+        center_x += radius_x;
+    }
+    broad_width = 49 + radius_x * 2;
+    broad_offset = 24 + radius_x;
     if (active_spawns != enemy_spawns) build_active();
     for (k = 0; full ? b + 1 < ENEMY_MAX : k < active_n; k++) {
         Enemy *e;
         int16_t dmg, armorleft;
         uint8_t link, infinite = 0, do_iced = 0, filter = s->blast_filter;
         int16_t dx;
-        if (!full && (uint16_t)(active_x[k] - s->x + 24) >= 49) continue;   /* |dx| >= 25: no hit */
+        if (!full && (uint16_t)(active_x[k] - center_x + broad_offset) >= broad_width) continue;
         b = full ? b + 1 : active[k];
         if (enemy_avail[b] != EA_ACTIVE) continue;
         e = &enemies[b];
-        dx = iabs16(e->ex + e->mapoffset - s->x);
-        if (!((e->enemycycle == 0 && dx < 25 && iabs16(e->ey - s->y - 12) < 29) ||
-              (e->enemycycle > 0 && dx < 13 && iabs16(e->ey - s->y - 6) < 15)))
+        dx = iabs16(e->ex + e->mapoffset - center_x);
+        if (!((e->enemycycle == 0 && dx < 25 + radius_x && iabs16(e->ey - s->y - 12 - radius_y) < 29 + radius_y) ||
+              (e->enemycycle > 0 && dx < 13 + radius_x && iabs16(e->ey - s->y - 6 - radius_y) < 15 + radius_y)))
             continue;
         if (s->chain > 0) {
             players[s->player - 1].shot_multi_pos[SHOT_MISC] = 0;
@@ -409,7 +420,7 @@ void shots_move(void)
         /* drawn frame: gr + ani before the increment; gr > 1000 shows the
          * mod-1000 frame (its JE_doSP sparkle is not ported) */
         s->frame = s->gr + s->ani;
-        if (s->frame > 1000) s->frame %= 1000;
+        if (s->frame > 1000 && s->frame <= 60000) s->frame %= 1000;
         if (++s->ani == s->ani_max) s->ani = 0;
         if (!shot_hits(s)) s->avail = 0;
     }

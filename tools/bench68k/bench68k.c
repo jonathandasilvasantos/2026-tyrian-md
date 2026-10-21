@@ -21,6 +21,7 @@
  * cartridge space or mapped read past physical ROM, a stack deeper than SGDK's 0xA00 reserve, or no
  * game_tick for B68K_HANG frames (default 600).
  * Environment: B68K_EPISODE=n selects episode n (default ROM menu default),
+ * B68K_OPTIONS=left,right equips sidekicks for replay coverage,
  * B68K_PAL=1 selects the 50 Hz/312-line timing model,
  * B68K_LEVEL=n plays level n directly (ROM debug_level),
  * B68K_FUNC=name per-instruction cycle histogram of one function,
@@ -57,6 +58,8 @@ static Sym *syms; static int nsyms;
 static uint32_t idle_lo[16], idle_hi[16]; static int nidle;
 static uint32_t prev_pc; static uint64_t prev_cyc, frame_idle;
 static uint32_t hash_on_addr, level_addr, episode_addr; static int force_level, force_episode;
+static unsigned force_options, option_left, option_right;
+static uint32_t loadout_addr, left_option_addr, right_option_addr;
 static uint32_t tick_addr, hash_addr, crash_lo, crash_hi, die_addr, hold_level_addr, main_addr;
 static uint64_t ticks, want; static unsigned last_tick_frame;
 static uint32_t hf_lo, hf_hi; static uint64_t *hf_cyc;
@@ -119,6 +122,9 @@ void bench_instr_hook(unsigned int pc) {
         it_start = c; idle_at_start = idle_total; it_ticked = 0;
     }
     if (pc == main_addr) {
+        if (force_options && loadout_addr && left_option_addr && right_option_addr) {
+            wr8(loadout_addr, 1); wr8(left_option_addr, option_left); wr8(right_option_addr, option_right);
+        }
         if (force_episode && episode_addr) wr8(episode_addr, (unsigned)force_episode);
         if (force_level && level_addr) wr8(level_addr, (unsigned)force_level);
     }
@@ -242,6 +248,9 @@ static void load_syms(const char *path) {
         if (!strcmp(name, "hash_enabled")) hash_on_addr = addr;
         if (!strcmp(name, "debug_level")) level_addr = addr;
         if (!strcmp(name, "debug_episode")) episode_addr = addr;
+        if (!strcmp(name, "debug_loadout")) loadout_addr = addr;
+        if (!strcmp(name, "debug_left_option")) left_option_addr = addr;
+        if (!strcmp(name, "debug_right_option")) right_option_addr = addr;
         if ((t == 'T' || t == 't') && addr < 0x800000) { syms[nsyms].addr = addr; strcpy(syms[nsyms].name, name); nsyms++; }
     }
     fclose(fp);
@@ -308,6 +317,12 @@ int main(int argc, char **argv) {
     }
     if (getenv("B68K_FUNC")) for (i = 0; i < nsyms - 1; i++) if (!strcmp(syms[i].name, getenv("B68K_FUNC"))) {
         hf_lo = syms[i].addr; hf_hi = syms[i + 1].addr; hf_cyc = calloc((hf_hi - hf_lo) / 2 + 1, 8); }
+    if (getenv("B68K_OPTIONS")) {
+        if (sscanf(getenv("B68K_OPTIONS"), "%u,%u", &option_left, &option_right) != 2 || option_left > 30 || option_right > 30) {
+            fprintf(stderr, "B68K_OPTIONS requires two IDs 0..30\n"); return 2;
+        }
+        force_options = 1;
+    }
     if (getenv("B68K_EPISODE")) force_episode = atoi(getenv("B68K_EPISODE"));
     if (getenv("B68K_LEVEL")) force_level = atoi(getenv("B68K_LEVEL"));
     if (getenv("B68K_PROF")) sscanf(getenv("B68K_PROF"), "%u,%u", &prof_a, &prof_b);

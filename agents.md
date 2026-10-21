@@ -125,8 +125,8 @@ what changed, why, worst-case visible difference. Approved directions:
   PSG for simple blips. Sample rates reduced to fit ROM.
 - **Scope**: all episodes and features present in OpenTyrian are the target
   (user request, 2026-10-21). Start with episodes 1–4 from Tyrian 2.1 data;
-  sidekicks, specials, saves, text screens and the third background layer
-  remain required. Two-player mode, Destruct, networking, jukebox and
+  specials, saves, text screens and the third background layer remain
+  required; sidekicks and all four episode flows are implemented. Two-player mode, Destruct, networking, jukebox and
   setup/config screens come later. Additional data-dependent content needs
   its original data source; do not invent missing content.
 - **Saves**: battery SRAM is allowed only if it does not shadow ROM data;
@@ -185,13 +185,28 @@ Every intentional difference from OpenTyrian, one line each:
   OKLab with lightness x2 — the Genesis' darkest non-black level is 52 and
   plain nearest-color turned dark browns red — level art looks brighter than
   on PC. Measured: the 2-palette limit costs little (error 22.8 vs 21.7 with
-  all 512 colors); the Genesis gamut is the floor.
+  all 512 colors); the Genesis gamut is the floor. PAL2's 13 actor colours
+  are pinned from episode-1 ship/weapon/option quantization for all four
+  episodes; the build verifies the CRAM words are identical.
 - Player shots — cap 64 instead of 81 (`PLAYER_SHOT_MAX`); positions are
-  interpolated between ticks for display (game state unchanged); not ported
-  yet: trails, shot sounds, sparkle (gr > 1000), OPTION_SHAPES specials,
-  guided aim (needs enemies), sidekicks (stage 6, with the shop: the new-game
-  loadout has none). `DEBUG_WEAPONS` (Makefile `GAME_FLAGS`, on for now):
-  START cycles the front weapon, A its power — remove with the shop.
+  interpolated for display; trails, shot sounds and guided aiming are
+  implemented. OPTION_SHAPES projectile bounds/collision and graphics are
+  implemented; JE_doSP sparkles (gr > 1000) remain missing. Debug weapon/power cycling was removed with sidekick shops.
+- Sidekicks — all 30 options retain the PC tables, five movement styles,
+  charge, firing cooldown and refill rules; orbit uses a 32-bit phase and
+  a 1024-entry radius-20 pixel LUT instead of float sin/cos — integer-only
+  68000 hot path — orbit phase differs from the PC's accumulated floats on
+  long runs. Ammo and charge use text readouts instead of icon/gauge art.
+- Special projectile art — OPTION_SHAPES frames are split into cached
+  24x32 hardware sprites with the original width/height collision radii —
+  VDP limits and no framebuffer — source transparency is preserved, but the
+  PC's per-pixel colour blend becomes opaque palette colour. Large volleys
+  may flicker under sprite/cache limits; damage and collision stay unchanged.
+- Sidekick input — A activates left finite-ammo options, Z the right and
+  the right attachment on a 6-button pad; 3-button A activates both —
+  fit both controller types while retaining C rear-mode switching — finite
+  options cannot be triggered separately on a 3-button pad. Infinite-ammo
+  options also fire with B, as with the PC primary fire button.
 - Playfield mapping — PC coordinates are kept in the simulation; the PC
   playfield (x 24..287, y 0..183) maps to screen x 8..271, y 24..207
   (offset -16, +24); the window plane frames it on the right (x >= 272) and
@@ -216,8 +231,10 @@ Every intentional difference from OpenTyrian, one line each:
   level-start save). No saves across power-off yet (SRAM vs password still
   to decide).
 - Shop — text screen in SMALL_FONT instead of the PC's graphical menus;
-  categories front/rear/generator/shield/ship, same trade-in economy;
-  sidekicks (Opt1/Opt2) not offered yet; starts on "Launch".
+  categories front/rear/generator/shield/ship/left option/right option, same
+  trade-in economy;
+  sidekicks (Opt1/Opt2) are offered with the original trade-in values; starts
+  on "Launch".
 - HUD — window plane, TINY_FONT (dark shades dropped so glyphs stay
   legible at 4x6), bars for armor/shield/power; PAL2 indexes 14/15 are
   reserved black/white for text.
@@ -272,9 +289,15 @@ Fill and keep current.
     sprite piece of the level), shot collision lists ~300.
   - total .bss depends on the episode: episode 1 34,372 bytes; episode 2
     34,980; episode 3 34,364; episode 4 30,124 (historical separate builds).
-    Unified cartridge: .bss 35,592 bytes + .data 90; active table pointers
-    133 bytes, two campaign-state bytes, dynamic sprite-slot count 2 bytes,
+    Unified cartridge with sidekicks: .bss 36,140 bytes + .data 90; active table pointers
+    165 bytes, two campaign-state bytes, dynamic sprite-slot count 2 bytes,
     PAL sprite velocity scale 2 bytes; HUD text uses a 32-bit tick deadline.
+    `Player`: 20 pairs of 16-bit history coordinates, two 20-byte companion
+    states, option IDs, 32-bit orbit phase, attachment state, all 11 PC shot
+    cooldown/multiposition bays. The level-start Player checkpoint is static
+    instead of a large stack local (Player and checkpoint: 200 bytes each).
+    Sidekick HUD state cache: 4 bytes;
+    replay loadout controls: 3 bytes.
     Normal boot uses 1,492 stack bytes, below the 0xA00 reserve (2026-10-21).
   - `sprites.c` piece cache — up to 88 slots x 4 bytes (48 for episode 2);
     `debug_hold_level` — 1 byte for headless replay flow control.
@@ -290,8 +313,9 @@ Fill and keep current.
     defaults: plane B 0xC000, window 0xD000, plane A 0xE000, sprites 0xF800).
 - Entity caps: enemies 100, enemy shots 60, player shots 64, explosions 64.
 - ROM: unified cartridge (2026-10-21): fixed .text ~3.24 MB,
-  initial .data 90; far graphics 3,487,232; physical end 0x6D3600 (~7.16 MB),
-  padded to 8 MB (85%). Fixed-region headroom is ~420 KB. The shipped SGDK math source is
+  initial .data 90; far graphics and extra option/weapon frames bring the used physical ROM
+  end to ~7.25 MB, padded to 8 MB (86%). The fixed region still has ~400 KB
+  of headroom. The shipped SGDK math source is
   recompiled with function sections (read-only include); garbage collection
   removes ~393 KB of unused log/sqrt tables and other unused math routines.
   Further code/tables still need measured budgets. Shared episode 1–3 item tables
@@ -320,6 +344,10 @@ Fill and keep current.
   (bottom 4 px of tile A + top 4 px of tile B) for each vertical pair that
   occurs (max 515 pairs per layer). Maps stay in tile units.
 - Worst frame (cycles): (level — cycles — date)
+  - episode 2, Charge Cannon + MegaMissile, 600-tick sidekick replay:
+    avg busy 82,019 / max 127,856 cycles, 17 frames without idle, 1,236-byte
+    stack. Tick-loop work peaks at 229,482 cycles; this loadout still slows
+    down in dense scenes. Not a worst-case bound (2026-10-21).
   - PAL episode 2 opening, 600 ticks: 872 game-loop frames (858.6 ideal),
     avg busy 84,295 / max 151,518 of 152,256 cycles; stack 1,264 bytes.
     This short run has no frame without idle, but some loop work spans
@@ -370,7 +398,11 @@ Fill and keep current.
   SGDK's 0xA00 reserve. All four episode opening replays run in tier 0,
   in both NTSC and PAL, together with a synthetic test of all 16 physical
   mapper banks and a host test that both clocks reach the same state after
-  five seconds.
+  five seconds. Five sidekick loadouts are also checked against their own
+  golden hashes on both regions (`make parity-sidekicks`), plus a sixth
+  Plasma Storm loadout for large projectile artwork/collision; `game_hash`
+  includes charge, ammo, movement history, orbit and attachment state when
+  sidekicks are equipped.
   Converter unit tests (Python) join tier 0 from stage 2. The runner sets
   `debug_hold_level` at the first tick: death/end does not restart or leave
   the level during a fixed-length replay, matching the host. The default
@@ -402,14 +434,13 @@ Write tests for behavior, not implementation; no duplicate tests.
 3. **Background** (done for level 1.9, layers 1-2: `tools/gen.py`
    `gen_level_bg`, `src/bg.c`): one level scrolling with 2 planes at 60 Hz,
    tile streaming, palette quantization review.
-4. **Player + weapons** (done except sidekicks: `src/game/player.c`,
+4. **Player + weapons** (sidekicks implemented: `src/game/player.c`,
    `shots.c`, `src/sprites.c`; `make rom-demo` plays itself): ship, movement, front/rear weapons, power levels,
    sidekicks; shots as sprites with multiplexing.
 5. **Enemies + events** (done for one level: `src/game/enemy.c`,
    `level.c`; HUD values exist but are not drawn): level event interpreter, enemy movement/AI,
    collisions, explosions, items, score.
-6. **HUD + flow** (done for episode 1 except saves, text screens and
-   sidekicks: `src/game/script.c`, `shop.c`, `src/menu.c`, `src/hud.c`):
+6. **HUD + flow** (four episodes, sidekick shops; saves and text screens remain: `src/game/script.c`, `shop.c`, `src/menu.c`, `src/hud.c`):
    window-plane HUD, level end, shop/upgrade screen, episode progression,
    saves.
 7. **Audio** (done: `tools/lds_dump`, `tools/tyrdata/music.py`,

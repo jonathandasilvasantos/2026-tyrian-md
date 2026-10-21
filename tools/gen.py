@@ -5,6 +5,7 @@ Usage: python3 tools/gen.py [out_dir] [--episode 1..4]   (default src/gen_data)
 Outputs are byte-identical for identical inputs.
 """
 import argparse
+import math
 import os
 import sys
 
@@ -16,6 +17,10 @@ from tyrdata import data_path, emit, items, level, palette, quantize, raster, sh
 
 BG_LAYERS = 2              # layer 3 (top) is not converted yet (agents.md §8)
 GAME_PALETTE = 5           # in-game PC palette (docs/data_formats.md §5)
+# Canonical PAL2 from episode-1 ship/weapon/option quantization. Pin it for
+# the whole campaign: enemies and backgrounds must never tint player shots.
+PLAYER_CRAM = (0x0A00, 0x00A0, 0x0002, 0x0222, 0x0C42, 0x0444, 0x0886,
+               0x02C6, 0x0008, 0x0CC8, 0x002C, 0x048C, 0x0CEC)
 BG_WIN_ROWS = 30           # cell rows resident per layer (src/bg.c)
 
 
@@ -373,6 +378,8 @@ def gen_items(out, episode=1):
          "typedef struct {\n    uint16_t op[2][11];\n    uint16_t poweruse;\n    uint8_t opnum;\n} WeaponPort;\n"
          "typedef struct {\n    uint16_t shipgraphic;\n    int8_t spd;\n    uint8_t dmg, ani;\n} Ship;\n"
          "typedef struct {\n    uint8_t tpwr, mpwr;\n} Shield;\n"
+         "typedef struct {\n    uint16_t graphic[20], weapon;\n"
+         "    uint8_t power, style, animation, frames, ammo, port;\n} Option;\n"
          "typedef struct {\n"
          "    uint8_t ani, tur[3], freq[3];\n"
          "    int8_t xmove, ymove, xaccel, yaccel, xcaccel, ycaccel;\n"
@@ -391,12 +398,15 @@ def gen_items(out, episode=1):
          "} EnemyDat;\n"
          f"#define WEAP_NUM {len(it['weapons']) - 1}\n#define PORT_NUM {len(it['ports']) - 1}\n"
          f"#define SHIP_NUM {len(it['ships']) - 1}\n#define POWER_NUM {len(it['powers']) - 1}\n"
-         f"#define SHIELD_NUM {len(it['shields']) - 1}\n#define ENEMY_NUM {len(it['enemies']) - 1}\n"
+         f"#define OPTION_NUM {len(it['options']) - 1}\n#define SHIELD_NUM {len(it['shields']) - 1}\n#define ENEMY_NUM {len(it['enemies']) - 1}\n"
          "extern const Weapon weapons[WEAP_NUM + 1];\n"
          "extern const WeaponPort weapon_ports[PORT_NUM + 1];\n"
          "extern const Ship ships[SHIP_NUM + 1];\n"
          "extern const uint8_t generator_power[POWER_NUM + 1];   /* powerAdd per tick */\n"
          "extern const Shield shields[SHIELD_NUM + 1];\n"
+         "extern const Option options[OPTION_NUM + 1];\n"
+         "extern const char *const option_names[OPTION_NUM + 1];\n"
+         "extern const uint16_t option_cost[OPTION_NUM + 1];\n"
          "extern const EnemyDat enemy_dat[ENEMY_NUM + 1];\n"
          "/* shop data: names and costs */\n"
          "extern const char *const port_names[PORT_NUM + 1], *const power_names[POWER_NUM + 1];\n"
@@ -421,6 +431,10 @@ def gen_items(out, episode=1):
         "{%d,%d,%d,%d}" % (s["shipgraphic"], s["spd"], s["dmg"], s["ani"]) for s in it["ships"]) + "\n};\n"
     c += "const Shield shields[SHIELD_NUM + 1] = {" + ",".join(
         "{%d,%d}" % (x["tpwr"], x["mpwr"]) for x in it["shields"]) + "};\n"
+    c += "const Option options[OPTION_NUM + 1] = {\n    " + ",\n    ".join(
+        "{%s,%d,%d,%d,%d,%d,%d,%d}" % (arr(o["gr"]), o["wpnum"], o["pwr"], o["tr"],
+                                        o["option"], o["ani"], o["ammo"], o["wport"])
+        for o in it["options"]) + "\n};\n"
     c += "const EnemyDat enemy_dat[ENEMY_NUM + 1] = {\n    " + ",\n    ".join(
         "{%d,%s,%s,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%s,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d}" % (
             e["ani"], arr(e["tur"]), arr(e["freq"]), e["xmove"], e["ymove"], e["xaccel"], e["yaccel"],
@@ -431,7 +445,7 @@ def gen_items(out, episode=1):
     c += "const uint8_t generator_power[POWER_NUM + 1] = " + arr(p["power"] for p in it["powers"]) + ";\n"
     def names(tab):
         return "{" + ",".join('"' + t["name"].strip().replace('"', "'") + '"' for t in tab) + "}"
-    for nm, key in (("port", "ports"), ("power", "powers"), ("shield", "shields"), ("ship", "ships")):
+    for nm, key in (("port", "ports"), ("power", "powers"), ("shield", "shields"), ("ship", "ships"), ("option", "options")):
         c += f"const char *const {nm}_names[] = {names(it[key])};\n"
         c += f"const uint16_t {nm}_cost[] = " + arr(t["cost"] for t in it[key]) + ";\n"
     emit.write_if_changed(os.path.join(out, "items.h"), h)
@@ -512,6 +526,7 @@ def gen_sprites(out, it, lvls, bg_pals):
             ship_imgs.append(img[:32])
 
     wids = {w for p in it["ports"][1:] for m in p["op"] for w in m}
+    wids |= {o["wpnum"] + charge for o in it["options"][1:] for charge in range(o["pwr"] + 1)}
     def level_banks(lvl):
         return {d for e in lvl.events if e.type == 5 for d in (e.dat, e.dat2, e.dat3, e.dat4) if 0 < d <= 34}
     banks = sorted(set().union(*(level_banks(lv) for lv in lvls)))
@@ -525,6 +540,54 @@ def gen_sprites(out, it, lvls, bg_pals):
         shot_index[f] = len(gfx)
         gfx.append(_piece(tabs[11], f - 500) if f > 500 else _piece(tabs[7], f))
         pal_of.append(0)
+
+    # Sidekick artwork shares the player's palette. Styles 1/2 use the
+    # large sprite sheet; the rest use individual ship-sheet pieces.
+    option_small = [0xFFFF] * 305
+    option_big = [0xFFFF] * 305
+    option_big_imgs = {}
+    for o in it["options"][1:]:
+        for frame in o["gr"][:o["ani"]]:
+            for charge in range(o["pwr"] + 1):
+                f = frame + charge
+                if not 0 < f <= 304:
+                    continue
+                if o["tr"] in (1, 2):
+                    img = np.full((32, 24), -1, np.int32)
+                    for (dx, dy), off in (((0, 0), 0), ((12, 0), 1), ((0, 14), 19), ((12, 14), 20)):
+                        if f + off <= 304:
+                            img[dy:dy + 14, dx:dx + 12] = _piece(tabs[9], f + off)[:14, :12]
+                    option_big_imgs[f] = img
+                elif option_small[f] == 0xFFFF:
+                    option_small[f] = len(gfx)
+                    gfx.append(_piece(tabs[8], f))
+                    pal_of.append(0)
+
+    # OPTION_SHAPES projectiles (e.g. Plasma Storm): retain original bounds,
+    # split artwork into cached 24x32 hardware sprites, all on player PAL2.
+    special_sprites = shapes.decode_sprite_table(tabs[5])
+    special_imgs = {}
+    for wid in sorted(wids):
+        if not 0 < wid < len(it["weapons"]):
+            continue
+        w = it["weapons"][wid]
+        for k in range(max(1, min(8, w["max"]))):
+            gr, delay = w["sg"][k], w["del_"][k]
+            count = max((delay - 100 + 1) if 100 < delay < 120 else w["weapani"] + 1, w["weapani"] + 1)
+            for ani in range(count):
+                f = gr + ani - 60001
+                if not 0 <= f < len(special_sprites) or special_sprites[f] is None or f in special_imgs:
+                    continue
+                full = np.array([[-1 if p is None else p for p in row] for row in special_sprites[f]], np.int32)
+                parts = []
+                for y in range(0, len(full), 32):
+                    for x in range(0, full.shape[1], 24):
+                        img = np.full((32, 24), -1, np.int32)
+                        sub = full[y:y + 32, x:x + 24]
+                        img[:sub.shape[0], :sub.shape[1]] = sub
+                        if (img >= 0).any():
+                            parts.append((x, y, img))
+                special_imgs[f] = parts
 
     # 12x14 pieces actually drawn: frames of 1x1 enemies/items (2x2 ones use
     # the composed big frames below), custom enemies of events 49-52, and
@@ -611,8 +674,9 @@ def gen_sprites(out, it, lvls, bg_pals):
     pals = []
     for k in (0, 1):
         imgs = [g for g, p in zip(gfx, pal_of) if p == k] + (
-            ship_imgs if k == 0 else big_imgs)
-        pal = quantize.quantize_cells([_hist(imgs)], rgb, n_pals=1, k=13 if k == 0 else 15)[0][0]
+            ship_imgs + list(option_big_imgs.values()) + [img for parts in special_imgs.values() for _, _, img in parts] if k == 0 else big_imgs)
+        pal = (np.array([palette.cram_to_rgb(word) for word in PLAYER_CRAM], np.float64) if k == 0 else
+               quantize.quantize_cells([_hist(imgs)], rgb, n_pals=1, k=15)[0][0])
         if k == 0:   # line 2 indexes 14/15: opaque black and white for text (HUD, menus)
             pal = np.vstack([pal, np.zeros((13 - len(pal), 3)), [[0, 0, 0]], [[255, 255, 255]]])
         pals.append(pal)
@@ -676,6 +740,24 @@ def gen_sprites(out, it, lvls, bg_pals):
             if idx is not None:
                 tabs_lv[bk] = idx
         level_tables.append(tabs_lv)
+    # Append large companions after enemy/map frames; PAL2 preserves their
+    # player colours without using an extra hardware palette.
+    for f, img in sorted(option_big_imgs.items()):
+        option_big[f] = len(big_imgs)
+        big_imgs.append(img)
+        big_pal.append(2)
+        big_tiles += tiles_column_major(q(img, 0), 3, 4)
+    special_starts = [0] * len(special_sprites)
+    special_counts = [0] * len(special_sprites)
+    special_parts = []
+    for f, parts in sorted(special_imgs.items()):
+        special_starts[f] = len(special_parts)
+        special_counts[f] = len(parts)
+        for x, y, img in parts:
+            special_parts.append((len(big_imgs), x, y))
+            big_imgs.append(img)
+            big_pal.append(2)
+            big_tiles += tiles_column_major(q(img, 0), 3, 4)
     words = []
     for p in pals:
         w = [0] + [palette.to_cram(tuple(int(x) for x in c)) for c in p]
@@ -695,6 +777,11 @@ def gen_sprites(out, it, lvls, bg_pals):
          "#define GFX_NONE 0xFFFF\n"
          "/* shot frame (1..1000, >500 = sheet 12) -> gfx */\n"
          "extern const u16 shot_gfx[1001];\n"
+         "extern const u16 option_small_gfx[305], option_big_gfx[305];\n"
+         "typedef struct { u16 gfx; u8 x, y; } SpecialPiece;\n"
+         "extern const SpecialPiece special_pieces[];\n"
+         f"extern const u16 special_starts[{len(special_sprites)}];\n"
+         f"extern const u8 special_counts[{len(special_sprites)}];\n"
          "/* enemy shape bank (1..34, 21 coins, 26 two-player) -> 305 entries\n"
          " * (sprite 1..304 -> gfx), NULL when the bank is not converted */\n"
          "extern const u16 *const bank_gfx[35];\n"
@@ -713,6 +800,12 @@ def gen_sprites(out, it, lvls, bg_pals):
     c += emit.tile_array("spr_tiles", spr_tiles)
     c += emit.c_array("u8", "spr_gfx_pal", [2 + k for k in pal_of], 32, "{}")
     c += emit.c_array("u16", "shot_gfx", shot_index, 16, "{}")
+    c += emit.c_array("u16", "option_small_gfx", option_small)
+    c += emit.c_array("u16", "option_big_gfx", option_big)
+    c += emit.c_array("u16", "special_starts", special_starts)
+    c += emit.c_array("u8", "special_counts", special_counts, 16, "{}")
+    c += "const SpecialPiece special_pieces[] = {" + ",".join(
+        "{%d,%d,%d}" % part for part in special_parts or [(65535, 0, 0)]) + "};\n"
     for bk, idx in sorted(bank_index.items()):
         c += emit.c_array("u16", f"bank{bk}_gfx", idx, 16, "{}")
     c += "const u16 *const bank_gfx[35] = {" + ",".join(
@@ -734,8 +827,32 @@ def gen_sprites(out, it, lvls, bg_pals):
     emit.write_if_changed(os.path.join(out, "sprites.c"), c)
     print(f"   gen: sprites: {len(ship_imgs)} ship frames, {len(gfx)} pieces "
           f"({len(frames)} shot frames, banks {sorted(bank_index)}), {len(big_imgs)} big enemy frames "
-          f"({sum(1 for p in big_pal if p != 3)} map pieces over the levels), "
+          f"({sum(1 for p in big_pal if p < 2)} map pieces over the levels), "
           f"colors {[len(p) for p in pals]}")
+
+
+def gen_shot_bounds(out):
+    sprites = shapes.decode_sprite_table(shapes.main_shape_tables()[5])
+    h = (emit.HEADER + '#ifndef GEN_SHOT_SHAPES_H\n#define GEN_SHOT_SHAPES_H\n#include "game/types.h"\n'
+         + f'#define OPTION_SHAPE_COUNT {len(sprites)}\n'
+         + 'extern const uint8_t option_shape_width[OPTION_SHAPE_COUNT];\n'
+         + 'extern const uint8_t option_shape_height[OPTION_SHAPE_COUNT];\n#endif\n')
+    c = emit.HEADER + '#include "shot_shapes.h"\n'
+    c += emit.c_array("uint8_t", "option_shape_width", [len(s[0]) if s else 0 for s in sprites], 16, "{}")
+    c += emit.c_array("uint8_t", "option_shape_height", [len(s) if s else 0 for s in sprites], 16, "{}")
+    emit.write_if_changed(os.path.join(out, "shot_shapes.h"), h)
+    emit.write_if_changed(os.path.join(out, "shot_shapes.c"), c)
+
+
+def gen_motion(out):
+    # sin/cos are build-time only. A 32-bit phase avoids orbit drift; the
+    # 1024-entry, radius-20 LUT rounds to the PC's pixel coordinates.
+    values = [math.floor(20 * math.sin(2 * math.pi * i / 1024) + 0.5) for i in range(1024)]
+    emit.write_if_changed(os.path.join(out, "motion.h"), emit.HEADER +
+                          '#ifndef GEN_MOTION_H\n#define GEN_MOTION_H\n#include "game/types.h"\n'
+                          'extern const int8_t orbit_sine[1024];\n#endif\n')
+    emit.write_if_changed(os.path.join(out, "motion.c"), emit.HEADER + '#include "motion.h"\n' +
+                          emit.c_array("int8_t", "orbit_sine", values, 32, "{}"))
 
 
 def main():
@@ -748,6 +865,8 @@ def main():
     generate_episodes(out, episode, gen_level_bg, write_level_bgs, gen_levels,
                       gen_script, gen_items, gen_sprites)
     gen_palettes(out)
+    gen_shot_bounds(out)
+    gen_motion(out)
     gen_fonts(out)
     gen_title(out)
     res = gen_sounds(out, "res")

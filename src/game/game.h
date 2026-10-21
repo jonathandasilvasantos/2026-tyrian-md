@@ -17,6 +17,11 @@
 #define PAD_B     0x0010
 #define PAD_C     0x0020
 #define PAD_START 0x0080
+#define PAD_Z     0x0100
+#define PAD_Y     0x0200
+#define PAD_X     0x0400
+/* Hardware layer marks 3-button input: A triggers both limited sidekicks. */
+#define PAD_THREE_BUTTON 0x1000
 
 /* Original game rate: PIT 0x4300 (69.57 Hz) / frameCountMax 2 = 34.78 Hz.
  * The Genesis runs TICK_NUM ticks every TICK_DEN 60 Hz frames (35 Hz,

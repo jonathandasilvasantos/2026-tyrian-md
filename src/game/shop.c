@@ -23,6 +23,7 @@ uint32_t shop_cost(uint8_t cat, uint16_t item, uint8_t power)
         break;
     case SHOP_GENERATOR: cost = item <= POWER_NUM ? power_cost[item] : 0; break;
     case SHOP_SHIELD: cost = item <= SHIELD_NUM ? shield_cost[item] : 0; break;
+    case SHOP_LEFT_OPTION: case SHOP_RIGHT_OPTION: cost = item <= OPTION_NUM ? option_cost[item] : 0; break;
     }
     return cost;
 }
@@ -36,6 +37,8 @@ uint16_t shop_owned(uint8_t cat)
     case SHOP_REAR: return p->weapon_id[REAR_WEAPON];
     case SHOP_GENERATOR: return p->generator;
     case SHOP_SHIELD: return p->shield_item;
+    case SHOP_LEFT_OPTION: return p->option_id[0];
+    case SHOP_RIGHT_OPTION: return p->option_id[1];
     }
     return 0;
 }
@@ -56,7 +59,17 @@ uint32_t shop_budget(uint8_t cat)
 uint8_t shop_buy(uint8_t cat, uint16_t item, uint8_t power)
 {
     Player *p = &players[0];
-    uint32_t budget = shop_budget(cat), cost = shop_cost(cat, item, power);
+    uint32_t budget, cost;
+    switch (cat) {
+    case SHOP_SHIP: if (item > SHIP_NUM) return 0; break;
+    case SHOP_FRONT: case SHOP_REAR: if (item > PORT_NUM || power < 1 || power > 11) return 0; break;
+    case SHOP_GENERATOR: if (item > POWER_NUM) return 0; break;
+    case SHOP_SHIELD: if (item > SHIELD_NUM) return 0; break;
+    case SHOP_LEFT_OPTION: case SHOP_RIGHT_OPTION: if (item > OPTION_NUM) return 0; break;
+    default: return 0;
+    }
+    budget = shop_budget(cat);
+    cost = shop_cost(cat, item, power);
     if (cost > budget) return 0;
     p->cash = budget - cost;
     switch (cat) {
@@ -72,6 +85,8 @@ uint8_t shop_buy(uint8_t cat, uint16_t item, uint8_t power)
     }
     case SHOP_GENERATOR: p->generator = (uint8_t)item; break;
     case SHOP_SHIELD: p->shield_item = (uint8_t)item; break;
+    case SHOP_LEFT_OPTION: p->option_id[0] = (uint8_t)item; break;
+    case SHOP_RIGHT_OPTION: p->option_id[1] = (uint8_t)item; break;
     }
     return 1;
 }

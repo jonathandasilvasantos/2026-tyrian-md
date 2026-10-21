@@ -20,6 +20,8 @@
 #include "game/shots.h"
 #include "game/enemy.h"
 #include "gen_data/sprites.h"
+#include "gen_data/items.h"
+#include "gen_data/shot_shapes.h"
 #include "dmaq.h"
 
 #define SPR_MAX 80
@@ -199,6 +201,27 @@ static inline void put_big(u16 big, s16 x, s16 y)
     n++;
 }
 
+static void draw_sidekicks(void)
+{
+    const Player *p = &players[0];
+    u16 i;
+    if (game.end_level) return;
+    for (i = 0; i < 2; i++) {
+        const Sidekick *s = &p->sidekick[i];
+        const Option *o = &options[p->option_id[i]];
+        u16 frame;
+        s16 x, y;
+        if (!p->option_id[i] || !o->animation) continue;
+        frame = o->graphic[s->animation_frame] + s->charge;
+        if (frame > 304) continue;
+        x = lerp(s->px, s->x);
+        y = lerp(s->py, s->y);
+        object_delta(s->x - s->px, s->y - s->py);
+        if (s->style == 1 || s->style == 2) put_big(option_big_gfx[frame], x - 6, y);
+        else put(option_small_gfx[frame], x, y);
+    }
+}
+
 static void draw_enemy_shots(void)
 {
     const EnemyShot *s = &enemy_shots[rot_es], *end = &enemy_shots[ENEMY_SHOT_MAX];
@@ -266,7 +289,17 @@ static void draw_player_shots(void)
         if (s == end) s = player_shots;
         if (!s->avail || !s->frame) continue;
         object_delta(s->x - s->px, s->y - s->py);
-        put(shot_gfx[s->frame], lerp(s->px, s->x) + 1, lerp(s->py, s->y));
+        if (s->frame > 60000) {
+            u16 shape = s->frame - 60001, i;
+            s16 x = lerp(s->px, s->x) + 1, y = lerp(s->py, s->y);
+            if (shape >= OPTION_SHAPE_COUNT) continue;
+            for (i = 0; i < special_counts[shape]; i++) {
+                const SpecialPiece *piece = &special_pieces[special_starts[shape] + i];
+                put_big(piece->gfx, x + piece->x, y + piece->y);
+            }
+        } else if (s->frame <= 1000) {
+            put(shot_gfx[s->frame], lerp(s->px, s->x) + 1, lerp(s->py, s->y));
+        }
     }
 }
 
@@ -341,6 +374,7 @@ void sprites_update(u16 frac, bool ticked)
     }
     sp = &vdpSpriteCache[n];
     draw_enemy_shots();
+    draw_sidekicks();
     draw_enemies();
     draw_player_shots();
     draw_explosions();

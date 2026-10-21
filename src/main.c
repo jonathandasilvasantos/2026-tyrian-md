@@ -10,6 +10,7 @@
 #include "gen_data/script.h"
 #include "gen_data/episodes.h"
 #include "gen_data/level.h"
+#include "gen_data/items.h"
 #include "bg.h"
 #include "sprites.h"
 #include "dmaq.h"
@@ -32,6 +33,7 @@ volatile u8 hash_enabled;
 /* set by tools/bench68k (B68K_LEVEL): play this level (1-based) directly */
 volatile u8 debug_level;
 volatile u8 debug_episode;
+volatile u8 debug_loadout, debug_left_option, debug_right_option;
 /* Headless runner compares a fixed number of ticks, including after death. */
 volatile u8 debug_hold_level;
 
@@ -40,6 +42,13 @@ volatile u8 debug_hold_level;
 __attribute__((noinline)) void game_tick(u16 pad)
 {
     game_step(pad);
+}
+
+static u16 read_pad(void)
+{
+    u16 pad = JOY_readJoypad(JOY_1);
+    if (JOY_getJoypadType(JOY_1) != JOY_TYPE_PAD6) pad |= PAD_THREE_BUTTON;
+    return pad;
 }
 
 static void level_screen_setup(const char *name)
@@ -64,6 +73,10 @@ static u8 play_level(const FlowStep *st)
     TickClock clock;
     tick_clock_init(&clock, IS_PAL_SYSTEM);
 
+    if (debug_loadout) {
+        players[0].option_id[0] = debug_left_option <= OPTION_NUM ? debug_left_option : 0;
+        players[0].option_id[1] = debug_right_option <= OPTION_NUM ? debug_right_option : 0;
+    }
     game_start_level(st->level);
     level_screen_setup(level_names[st->name]);
     sound_music(st->song);
@@ -76,7 +89,7 @@ static u8 play_level(const FlowStep *st)
             game_tick(BUTTON_B | ((game.frame / 70) & 1 ? BUTTON_RIGHT : BUTTON_LEFT)
                       | ((game.frame / 45) & 1 ? BUTTON_UP : 0));
 #else
-            game_tick(JOY_readJoypad(JOY_1));
+            game_tick(read_pad());
 #endif
             if (hash_enabled) frame_hash = game_hash();
         }
@@ -120,9 +133,15 @@ int main(bool hard)
             script_goto(shop_screen(st.shop));
             break;
         case FLOW_LEVEL: {
-            Player saved = players[0];   /* death replays the level with these items */
+            static Player saved;
+            saved = players[0];   /* death replays the level with these items */
             u8 died = play_level(&st);
-            if (died) players[0] = saved;
+            if (died) {
+                u32 orbit_phase = players[0].orbit_phase;
+                players[0] = saved;
+                /* PC orbital phase is global and survives a level reload. */
+                players[0].orbit_phase = orbit_phase;
+            }
             script_level_done(st.next_section, died);
             break;
         }

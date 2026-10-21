@@ -7,10 +7,25 @@
 #define FRONT_WEAPON 0
 #define REAR_WEAPON 1
 /* shot bays (shotRepeat / shotMultiPos indexes) */
-#define SHOT_MISC 2
-#define SHOT_BAYS 3
+#define SHOT_LEFT_SIDEKICK 2
+#define SHOT_RIGHT_SIDEKICK 3
+#define SHOT_MISC 4
+#define SHOT_BAYS 11
 
 typedef struct {
+    int16_t x, y, px, py;
+    uint16_t refill_ticks, refill_max;
+    uint8_t ammo, ammo_max, style, animation_enabled, animation_frame;
+    uint8_t charge, charge_ticks;
+} Sidekick;
+
+typedef struct {
+    uint8_t option_id[2];
+    Sidekick sidekick[2];
+    int16_t old_x[20], old_y[20];
+    uint32_t orbit_phase;
+    int16_t attachment_move;
+    uint8_t attachment_linked, attachment_return;
     int16_t x, y;                  /* PC playfield coordinates */
     int16_t px, py;                /* position at the previous tick (render interpolation) */
     int16_t x_velocity, y_velocity;
@@ -31,7 +46,6 @@ typedef struct {
     uint8_t invulnerable_ticks;
     uint8_t hit_area_x, hit_area_y;  /* shot_hit_area_x/y */
     uint32_t cash;
-    uint16_t debug_held;           /* DEBUG_WEAPONS buttons, edge detection */
 } Player;
 
 extern Player players[1];

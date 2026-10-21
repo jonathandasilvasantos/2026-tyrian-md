@@ -10,6 +10,8 @@
 #define SHOP_FRONT 1
 #define SHOP_REAR 2
 #define SHOP_GENERATOR 3
+#define SHOP_LEFT_OPTION 5
+#define SHOP_RIGHT_OPTION 6
 #define SHOP_SHIELD 8
 
 /* price of item at power (power only for weapons, 1..11) */

@@ -1,0 +1,14 @@
+# Tick pad: B main fire, A left sidekick, Z(100) right sidekick.
+# The last burst exercises the three-button fallback (1000 + A).
+0 0
+20 10
+80 50
+160 110
+240 150
+300 11
+360 14
+420 18
+480 0
+540 1000
+560 1040
+580 0

@@ -12,7 +12,7 @@ source as the behavioral reference.
 with episode selection and campaign progression that preserves equipment
 and cash. `EPISODE=1..4` sets the menu default and benchmark episode. The engine includes episode
 scripts, shops and destination choice, enemies and level events, front/rear
-weapons, generator power, HUD, the 41 songs converted to YM2612/PSG, sound
+weapons, the 30 sidekicks (shop, movement, charge/ammo, HUD), generator power, HUD, the 41 songs converted to YM2612/PSG, sound
 effects and voices. Story starting funds follow the original episode; episode 4 also applies
 the original difficulty reduction.
 
@@ -22,7 +22,7 @@ PAL. Both regions run the same 35 Hz simulation. Full campaigns,
 visual accuracy and hardware timing still need validation; dense scenes can
 slow down. See `agents.md` §8 for deviations and §9 for budgets.
 
-Still required: saves, text screens and data cubes, sidekicks and special weapons, the third
+Still required: saves, text screens and data cubes, special weapons, the third
 (top) background layer, and the remaining OpenTyrian modes/features. The
 ROM uses the official Sega SSF2 mapper; code, tables and audio stay in the
 fixed lower 3.5 MB, while DMA maps graphics through the upper 512 KB.
@@ -53,8 +53,11 @@ selects SSF2 by product code rather than the standard `SEGA SSF` header.
 Only that emulator copy changes the product code; `out/rom.bin` retains
 Tyrian's identity for flashcarts and emulators supporting the SSF header.
 
-Controls: B fire, C rear weapon mode. Temporary debug keys until the shop
-sells everything: START cycles the front weapon, A its power.
+Controls: B fires the equipped weapons and infinite-ammo sidekicks, C
+changes rear weapon mode, A fires the left limited-ammo sidekick, and Z
+fires the right one on a 6-button pad. On a 3-button pad A fires both
+limited-ammo sidekicks. Z (A on a 3-button pad) launches/recalls the right
+front-mounted attachment. The old weapon/power debug shortcuts are removed.
 
 ## Layout
 
@@ -77,6 +80,11 @@ make parity EPISODE=2 # one episode against its golden replay
 make bench-68k     # CPU load, deepest stack, per-function profile
 make bench-levels  # frames used per level (manual, minutes)
 ```
+
+`make parity-sidekicks` checks six companion loadouts, including charge,
+finite ammo, orbiting satellites, both companion sprite sizes and Plasma
+Storm's large artwork/collision bounds. The player/bullet palette stays
+identical across the four episodes.
 
 `make parity` runs the ROM headless on a 68000 emulator (Musashi) and checks it
 reaches the same game state as the host build on the same input replay.

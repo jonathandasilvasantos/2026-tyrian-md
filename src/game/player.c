@@ -5,6 +5,7 @@
 #include "shots.h"
 #include "enemy.h"
 #include "rng.h"
+#include "sidekick.h"
 #include "gen_data/items.h"
 #include "gen_data/level.h"
 
@@ -16,6 +17,8 @@ void player_init(void)
 {
     Player *p = &players[0];
     /* JE: New Game Items/Data (mainint.c), playfield entry (tyrian2.c) */
+    p->option_id[0] = p->option_id[1] = 0;
+    p->orbit_phase = 0;
     p->ship = 1;                 /* USP Talon */
     p->generator = 2;            /* Advanced MR-12 */
     p->weapon_id[FRONT_WEAPON] = 1;   /* Pulse Cannon */
@@ -26,7 +29,6 @@ void player_init(void)
     /* tyrian2.c:newGame, single-player story starting funds. */
     static const uint16_t initial_cash[4] = {10000, 15000, 20000, 30000};
     p->cash = initial_cash[LEVEL_EPISODE - 1];
-    p->debug_held = 0;
 }
 
 /* tyrian2.c level start: position, shields, armor, invulnerability */
@@ -62,6 +64,7 @@ void player_start_level(void)
     p->is_alive = 1;
     p->exploding_ticks = 0;
     p->mode_button_held = 0;
+    sidekicks_init();
 }
 
 static int16_t iabs(int16_t v) { return v < 0 ? -v : v; }
@@ -91,6 +94,7 @@ void player_tick(uint16_t pad)
 
     p->px = p->x;
     p->py = p->y;
+    sidekicks_before_move();
 
     if (game.end_level && game.level_end > 0) {
         game.level_end--;
@@ -103,6 +107,7 @@ void player_tick(uint16_t pad)
             explosion_setup_large(0, 0, p->x, p->y + 7);
             if (game.level_end > 0) game.level_end--;
         }
+        if (!game.end_level) sidekicks_animate();
         return;
     }
     if (game.end_level) {
@@ -138,6 +143,7 @@ void player_tick(uint16_t pad)
     p->y_velocity = clamp(p->y_velocity + accel_y, -4, 4);
     p->x += p->x_velocity;
     p->y += p->y_velocity;
+    sidekicks_record_move(mouse_x, mouse_y);
 
     p->x = clamp(p->x, 40, 256);
     p->y = clamp(p->y, 10, 160);
@@ -160,23 +166,6 @@ void player_tick(uint16_t pad)
         p->mode_button_held = 0;
     }
 
-#ifdef DEBUG_WEAPONS
-    /* Temporary until the shop (stage 6): START cycles the front weapon
-     * port, A its power level 1..11. */
-    {
-        uint16_t edge = pad & ~p->debug_held & (PAD_START | PAD_A);
-        p->debug_held = pad & (PAD_START | PAD_A);
-        if (edge & PAD_START) {
-            do {
-                if (++p->weapon_id[FRONT_WEAPON] > PORT_NUM) p->weapon_id[FRONT_WEAPON] = 1;
-            } while (!weapon_ports[p->weapon_id[FRONT_WEAPON]].op[0][0]);
-            p->shot_multi_pos[FRONT_WEAPON] = 0;
-        }
-        if (edge & PAD_A) {
-            if (++p->weapon_power[FRONT_WEAPON] > 11) p->weapon_power[FRONT_WEAPON] = 1;
-        }
-    }
-#endif
 
     for (bay = 0; bay < 2; bay++) {
         uint16_t item = p->weapon_id[bay];
@@ -189,6 +178,8 @@ void player_tick(uint16_t pad)
                         weapon_ports[item].op[mode][p->weapon_power[bay] - 1], 1);
         }
     }
+    sidekicks_tick(pad);
+    sidekicks_animate();
     update_map_offsets();
 }
 

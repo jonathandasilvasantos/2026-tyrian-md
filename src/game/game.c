@@ -187,6 +187,18 @@ uint32_t game_hash(void)
     h = mix(h, p->weapon_id[0] | (uint32_t)p->weapon_id[1] << 16);
     h = mix(h, p->weapon_power[0] | p->weapon_power[1] << 8 | (uint32_t)p->weapon_mode << 16);
     h = mix(h, p->armor | p->shield << 8 | (uint32_t)p->is_alive << 16);
+    if (p->option_id[0] || p->option_id[1]) {
+        h = mix(h, p->orbit_phase);
+        h = mix(h, (uint16_t)p->attachment_move | (uint32_t)p->attachment_linked << 16 | (uint32_t)p->attachment_return << 24);
+        for (i = 0; i < 2; i++) {
+            const Sidekick *s = &p->sidekick[i];
+            h = mix(h, p->option_id[i] | (uint32_t)s->ammo << 8 | (uint32_t)s->charge << 16 | (uint32_t)s->charge_ticks << 24);
+            h = mix(h, (uint16_t)s->x | (uint32_t)(uint16_t)s->y << 16);
+            h = mix(h, s->refill_ticks | (uint32_t)s->animation_frame << 16 | (uint32_t)p->shot_repeat[SHOT_LEFT_SIDEKICK + i] << 24);
+            h = mix(h, s->animation_enabled | (uint32_t)p->shot_multi_pos[SHOT_LEFT_SIDEKICK + i] << 8);
+        }
+        for (i = 0; i < 20; i++) h = mix(h, (uint16_t)p->old_x[i] | (uint32_t)(uint16_t)p->old_y[i] << 16);
+    }
     for (i = 0; i < PLAYER_SHOT_MAX; i++) {
         const PlayerShot *s = &player_shots[i];
         if (!s->avail) continue;
