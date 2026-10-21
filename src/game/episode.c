@@ -11,7 +11,7 @@ void game_new(uint8_t episode, uint8_t difficulty)
     if (episode < 1 || episode > EPISODE_COUNT) episode = LEVEL_DEFAULT_EPISODE;
     if (difficulty < DIFFICULTY_EASY || difficulty > DIFFICULTY_10) difficulty = DIFFICULTY_NORMAL;
     episode_tables_select(episode);
-    game.initial_difficulty = difficulty;
+    game.initial_difficulty = game.base_difficulty = difficulty;
     game.initial_episode = episode;
     game.repeated = 0;
     rng_seed(0x2545F491u);

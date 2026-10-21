@@ -127,6 +127,9 @@ def generate_episodes(out, default, gen_bg, write_bgs, gen_levels, gen_script, g
         if kind == "tables":
             names = help_section("** Section 16 ")[1:5]
             source += "const char *const episode_names[4] = {" + ",".join('"' + n.strip() + '"' for n in names) + "};\n"
+            difficulty_names = help_section("** Section 17 - Difficulty")
+            source += "const char *const difficulty_names[7] = {" + ",".join('"' + n.strip() + '"' for n in difficulty_names) + "};\n"
+            source += "const uint8_t story_difficulty_values[6] = {1,2,3,4,6,8};\n"
             source += "uint8_t current_episode, level_count, level_first, script_section_count, shop_count;\n"
         source += f"void episode_{kind}_select(uint8_t ep)\n{{\n    switch (ep) {{\n"
         for ep in range(1, 5):
@@ -145,5 +148,7 @@ def generate_episodes(out, default, gen_bg, write_bgs, gen_levels, gen_script, g
         emit.write_if_changed(os.path.join(out, f"episode_{kind}.c"), source)
     emit.write_if_changed(os.path.join(out, "episodes.h"), emit.HEADER +
                          '#ifndef GEN_EPISODES_H\n#define GEN_EPISODES_H\n#include "game/types.h"\n'
-                         '#define EPISODE_COUNT 4\nextern const char *const episode_names[4];\nvoid episode_tables_select(uint8_t ep);\n'
+                         '#define EPISODE_COUNT 4\nextern const char *const episode_names[4];\n'
+                         'extern const char *const difficulty_names[7];\nextern const uint8_t story_difficulty_values[6];\n'
+                         'void episode_tables_select(uint8_t ep);\n'
                          'void episode_graphics_select(uint8_t ep);\n#endif\n')

@@ -90,3 +90,15 @@ uint8_t shop_buy(uint8_t cat, uint16_t item, uint8_t power)
     }
     return 1;
 }
+
+uint32_t player_total_value(void)
+{
+    const Player *p = &players[0];
+    return p->cash + shop_cost(SHOP_SHIP, p->ship, 1)
+        + shop_cost(SHOP_FRONT, p->weapon_id[0], p->weapon_power[0])
+        + shop_cost(SHOP_REAR, p->weapon_id[1], p->weapon_power[1])
+        + shop_cost(SHOP_SHIELD, p->shield_item, 1)
+        + shop_cost(SHOP_GENERATOR, p->generator, 1)
+        + shop_cost(SHOP_LEFT_OPTION, p->option_id[0], 1)
+        + shop_cost(SHOP_RIGHT_OPTION, p->option_id[1], 1);
+}

@@ -7,6 +7,7 @@
 /* tiles: hud font at TILE_FONT_INDEX (96), bars + solid at first_tile */
 void hud_init(u16 first_tile, const char *level_name);
 void hud_update(void);       /* redraws what changed; call once per frame */
+const char *hud_current_message(void);
 void hud_message(const char *text);   /* bottom bar text */
 
 #endif

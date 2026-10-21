@@ -45,3 +45,10 @@ void sound_music(u8 song)
     XGM2_playTrack(song - 1);
 #endif
 }
+
+/* JE_pauseGame halves music volume, leaving PCM effects alone. */
+void sound_pause(bool paused)
+{
+    XGM2_setFMVolume(paused ? 50 : 100);
+    XGM2_setPSGVolume(paused ? 50 : 100);
+}

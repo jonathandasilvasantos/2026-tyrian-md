@@ -18,6 +18,7 @@ static u16 bar_tile, solid_tile;
 static u32 shown_cash;
 static u16 shown_option[2];
 static u8 shown_armor, shown_shield, shown_power, shown_front, shown_rear, dirty;
+static const char *current_message; /* ROM text, retained while paused */
 static u32 text_until; /* game tick deadline, independent of redraw rate */
 static u16 shown_boss;           /* armor shown on the boss bar + 1, 0 = hidden */
 
@@ -86,12 +87,19 @@ void hud_init(u16 first_tile, const char *level_name)
     put_text(COL0, 24, strlen(level_name) > 6 ? level_name + 6 : "", 6);
     dirty = 1;
     text_until = 0;
+    current_message = "";
     shown_boss = 0;
     hud_update();
 }
 
+const char *hud_current_message(void)
+{
+    return current_message;
+}
+
 void hud_message(const char *text)
 {
+    current_message = text;
     put_text(1, ROW_BOTTOM, text, 32);
 }
 

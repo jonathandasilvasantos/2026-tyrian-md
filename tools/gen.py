@@ -12,6 +12,7 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 import numpy as np  # noqa: E402
 
+from tyrdata import difficulty as difficulty_mod
 from tyrdata import script as script_mod  # noqa: E402
 from tyrdata import data_path, emit, items, level, palette, quantize, raster, shapes  # noqa: E402
 
@@ -408,6 +409,7 @@ def gen_items(out, episode=1):
          "extern const char *const option_names[OPTION_NUM + 1];\n"
          "extern const uint16_t option_cost[OPTION_NUM + 1];\n"
          "extern const EnemyDat enemy_dat[ENEMY_NUM + 1];\n"
+         "extern const int16_t enemy_value_scale[12 * (ENEMY_NUM + 1)];\n"
          "/* shop data: names and costs */\n"
          "extern const char *const port_names[PORT_NUM + 1], *const power_names[POWER_NUM + 1];\n"
          "extern const char *const shield_names[SHIELD_NUM + 1], *const ship_names[SHIP_NUM + 1];\n"
@@ -442,6 +444,8 @@ def gen_items(out, episode=1):
             e["esize"], arr(e["egraphic"]), e["explosiontype"], e["animate"], e["shapebank"], e["xrev"],
             e["yrev"], e["dgr"], e["dlevel"], e["dani"], e["elaunchfreq"], e["elaunchtype"], e["value"],
             e["eenemydie"]) for e in it["enemies"]) + "\n};\n"
+    c += emit.c_array("int16_t", "enemy_value_scale", [
+        difficulty_mod.enemy_value(e["value"], d) for d in range(-1, 11) for e in it["enemies"]], 16, "{}")
     c += "const uint8_t generator_power[POWER_NUM + 1] = " + arr(p["power"] for p in it["powers"]) + ";\n"
     def names(tab):
         return "{" + ",".join('"' + t["name"].strip().replace('"', "'") + '"' for t in tab) + "}"
@@ -831,6 +835,19 @@ def gen_sprites(out, it, lvls, bg_pals):
           f"colors {[len(p) for p in pals]}")
 
 
+def gen_difficulty(out):
+    h = (emit.HEADER + '#ifndef GEN_DIFFICULTY_H\n#define GEN_DIFFICULTY_H\n#include "game/types.h"\n'
+         'extern const uint8_t enemy_armor_scale[12 * 256];\n'
+         'extern const uint32_t score_thresholds[9 * 8];\n#endif\n')
+    c = emit.HEADER + '#include "difficulty.h"\n'
+    c += emit.c_array("uint8_t", "enemy_armor_scale", [difficulty_mod.enemy_armor(a, d)
+                                                               for d in range(-1, 11) for a in range(256)], 32, "{}")
+    c += emit.c_array("uint32_t", "score_thresholds", [v for d in range(1, 10)
+                                                               for v in difficulty_mod.score_thresholds(d)], 8, "{}")
+    emit.write_if_changed(os.path.join(out, "difficulty.h"), h)
+    emit.write_if_changed(os.path.join(out, "difficulty.c"), c)
+
+
 def gen_shot_bounds(out):
     sprites = shapes.decode_sprite_table(shapes.main_shape_tables()[5])
     h = (emit.HEADER + '#ifndef GEN_SHOT_SHAPES_H\n#define GEN_SHOT_SHAPES_H\n#include "game/types.h"\n'
@@ -865,6 +882,7 @@ def main():
     generate_episodes(out, episode, gen_level_bg, write_level_bgs, gen_levels,
                       gen_script, gen_items, gen_sprites)
     gen_palettes(out)
+    gen_difficulty(out)
     gen_shot_bounds(out)
     gen_motion(out)
     gen_fonts(out)

@@ -18,6 +18,8 @@
 uint32_t shop_cost(uint8_t cat, uint16_t item, uint8_t power);
 uint16_t shop_owned(uint8_t cat);
 uint8_t shop_owned_power(uint8_t cat);
+/* JE_totalScore: cash plus the current resale value of every equipped item. */
+uint32_t player_total_value(void);
 /* cash available for cat: cash + value of the owned item (sold back) */
 uint32_t shop_budget(uint8_t cat);
 /* buy (replacing the owned item); 0 if not affordable */

@@ -71,6 +71,7 @@ static void level_screen_setup(const char *name)
 static u8 play_level(const FlowStep *st)
 {
     TickClock clock;
+    u16 held = 0xFFFF;
     tick_clock_init(&clock, IS_PAL_SYSTEM);
 
     if (debug_loadout) {
@@ -81,15 +82,24 @@ static u8 play_level(const FlowStep *st)
     level_screen_setup(level_names[st->name]);
     sound_music(st->song);
     while (TRUE) {
-        bool ticked = tick_clock_step(&clock);
-        u16 frac = tick_clock_fraction(&clock);
+        u16 pad = read_pad();
+        bool ticked;
+        u16 frac;
+        if (!debug_hold_level && (pad & ~held & BUTTON_START)) {
+            pause_screen();
+            held = read_pad();
+            continue;
+        }
+        held = pad;
+        ticked = tick_clock_step(&clock);
+        frac = tick_clock_fraction(&clock);
         if (ticked) {
 #ifdef AUTOPLAY
             /* make rom-demo: fire and sweep, for emulator captures */
             game_tick(BUTTON_B | ((game.frame / 70) & 1 ? BUTTON_RIGHT : BUTTON_LEFT)
                       | ((game.frame / 45) & 1 ? BUTTON_UP : 0));
 #else
-            game_tick(read_pad());
+            game_tick(pad);
 #endif
             if (hash_enabled) frame_hash = game_hash();
         }
@@ -114,8 +124,16 @@ int main(bool hard)
     sound_init();
     game_new(debug_episode ? debug_episode : LEVEL_DEFAULT_EPISODE, DIFFICULTY_NORMAL);
     if (!debug_level && !debug_episode) {
-        title_screen();
-        game_new(episode_screen(), DIFFICULTY_NORMAL);
+        u8 episode = 0, difficulty = 0;
+        do {
+            title_screen();
+            do {
+                episode = episode_screen();
+                if (!episode) break;
+                difficulty = difficulty_screen();
+            } while (!difficulty);
+        } while (!episode);
+        game_new(episode, difficulty);
     }
     if (debug_level) {    /* benchmark entry: one level, replayed forever */
         FlowStep st = { FLOW_LEVEL, (u8)(debug_level - 1), 0, 0, 0, 0, 0 };

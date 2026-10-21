@@ -14,6 +14,7 @@
 #include "gen_data/episodes.h"
 #include "gen_data/level.h"
 #include "sound.h"
+#include "hud.h"
 
 #define FONT_TILE TILE_USER_INDEX
 static u16 held;
@@ -301,6 +302,7 @@ u8 episode_screen(void)
         u16 edge = menu_pad_edge();
         if (edge & BUTTON_UP) { sel = sel ? sel - 1 : EPISODE_COUNT - 1; redraw = 1; }
         if (edge & BUTTON_DOWN) { sel = sel + 1 < EPISODE_COUNT ? sel + 1 : 0; redraw = 1; }
+        if (edge & BUTTON_C) return 0;
         if (edge & (BUTTON_START | BUTTON_B | BUTTON_A)) return sel + 1;
         if (redraw) {
             u8 i;
@@ -317,4 +319,51 @@ u8 episode_screen(void)
         }
         menu_frame();
     }
+}
+
+u8 difficulty_screen(void)
+{
+    u8 sel = 1, redraw = 1;
+#ifdef AUTOPLAY
+    return DIFFICULTY_NORMAL;
+#endif
+    menu_begin();
+    for (;;) {
+        u16 edge = menu_pad_edge();
+        if (edge & BUTTON_UP) { sel = sel ? sel - 1 : 5; redraw = 1; }
+        if (edge & BUTTON_DOWN) { sel = sel < 5 ? sel + 1 : 0; redraw = 1; }
+        if (edge & BUTTON_C) return 0;
+        if (edge & (BUTTON_START | BUTTON_B | BUTTON_A)) return story_difficulty_values[sel];
+        if (redraw) {
+            u8 i;
+            char line[40];
+            redraw = 0;
+            menu_text(2, 1, difficulty_names[0], 36);
+            for (i = 0; i < 6; i++) {
+                line[0] = i == sel ? '*' : ' ';
+                line[1] = ' ';
+                strcpy(line + 2, difficulty_names[i + 1]);
+                menu_text(4, 4 + i, line, 32);
+            }
+            menu_text(2, 13, "B select   C back", 36);
+        }
+        menu_frame();
+    }
+}
+
+void pause_screen(void)
+{
+    u16 held = BUTTON_START;
+    const char *message = hud_current_message();
+    hud_message("PAUSED - PRESS START");
+    sound_pause(TRUE);
+    for (;;) {
+        u16 pad = JOY_readJoypad(JOY_1);
+        if (pad & ~held & BUTTON_START) break;
+        held = pad;
+        menu_frame();
+    }
+    sound_pause(FALSE);
+    hud_message(message);
+    menu_frame();
 }

@@ -6,6 +6,7 @@
 
 void sound_init(void);
 void sound_flush(void);          /* play and clear game.sound_queue */
+void sound_pause(bool paused);
 void sound_music(u8 song);       /* 1-based song, 0 = stop; no-op if already playing */
 
 #endif

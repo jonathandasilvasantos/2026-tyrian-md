@@ -46,7 +46,13 @@
 
 #define DIFFICULTY_EASY 1
 #define DIFFICULTY_NORMAL 2
+#define DIFFICULTY_HARD 3
+#define DIFFICULTY_IMPOSSIBLE 4
+#define DIFFICULTY_INSANITY 5
+#define DIFFICULTY_SUICIDE 6
 #define DIFFICULTY_MANIACAL 7
+#define DIFFICULTY_ZINGLON 8
+#define DIFFICULTY_NORTANEOUS 9
 #define DIFFICULTY_10 10
 
 /* One background layer's scroll state, as tyrian2.c/backgrnd.c keep it. */
@@ -72,7 +78,7 @@ typedef struct {
     uint16_t power;           /* generator energy, 0..900 */
     uint8_t shield_wait;
     uint16_t shield_t;
-    int8_t difficulty, initial_difficulty;
+    int8_t difficulty, initial_difficulty, base_difficulty;
     uint8_t enemies_active, level_enemy_frequency, force_events;
     uint8_t stop_backgrounds, stop_background_num;
     uint8_t background2over, background3over, background3x1, background3x1b;

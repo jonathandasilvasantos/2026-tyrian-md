@@ -12,6 +12,8 @@ void menu_frame(void);                 /* end of frame */
 u8 shop_screen(u8 shop);
 void message_screen(const char *line1, const char *line2);
 u8 episode_screen(void);
+u8 difficulty_screen(void);
+void pause_screen(void);
 const char *episode_name(u8 episode);
 void title_screen(void);           /* Tyrian MD + credits, waits for START */
 

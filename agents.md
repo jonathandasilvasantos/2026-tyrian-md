@@ -218,18 +218,27 @@ Every intentional difference from OpenTyrian, one line each:
   velocity on tick frames (objects appear/change one frame late); map-piece
   enemy frames (> 85% opaque) use the level's background palettes; all
   other enemies, items and explosions share palette line 3.
-- Enemies — single player, story mode, difficulty Normal; "lives" for
+- Enemies — single player, story mode; "lives" for
   event 33 is the front weapon power, as on the PC; arcade/2-player items
   (evalue > 30000) give only their cash; specials, superbombs, data cube
-  text, enemy filters, sounds and music not ported yet; explosion cap 64
+  text and enemy filters not ported yet; explosion cap 64
   (PC 200); event 12's self-modification tracked for 16 events.
 - Flow — the episode script is compiled to bytecode (tools/tyrdata/
   script.py); dropped for now: text/picture/music screens (]W ]P ]M ...),
   data cubes, galaga/extra modes (level 1.18 "ALE" never ends without
-  galaga mode), two-player branches. Difficulty is fixed at Normal. Death
+  galaga mode), two-player branches. Death
   replays the level with the items it started with (the PC reloads its
   level-start save). No saves across power-off yet (SRAM vs password still
   to decide).
+- Difficulty — six original story choices are directly visible on the pad menu
+  instead of hiding the last three behind keyboard codes; enemy armor/value
+  multipliers and score-based increases follow OpenTyrian, precomputed with
+  float32 in the converter — avoid floating point at runtime — no gameplay
+  rule difference. Temporary event changes reset at level boundaries; episode
+  4 retains its one-step reduction.
+- Pause — START freezes simulation and halves music volume, START resumes;
+  the pause banner uses the HUD bottom bar instead of the PC center — preserve
+  the playfield without reserving extra tiles — different banner position.
 - Shop — text screen in SMALL_FONT instead of the PC's graphical menus;
   categories front/rear/generator/shield/ship/left option/right option, same
   trade-in economy;
@@ -289,14 +298,15 @@ Fill and keep current.
     sprite piece of the level), shot collision lists ~300.
   - total .bss depends on the episode: episode 1 34,372 bytes; episode 2
     34,980; episode 3 34,364; episode 4 30,124 (historical separate builds).
-    Unified cartridge with sidekicks: .bss 36,140 bytes + .data 90; active table pointers
-    165 bytes, two campaign-state bytes, dynamic sprite-slot count 2 bytes,
+    Unified cartridge with sidekicks: .bss 36,148 bytes + .data 90; active table pointers
+    169 bytes, two campaign-state bytes, dynamic sprite-slot count 2 bytes,
     PAL sprite velocity scale 2 bytes; HUD text uses a 32-bit tick deadline.
     `Player`: 20 pairs of 16-bit history coordinates, two 20-byte companion
     states, option IDs, 32-bit orbit phase, attachment state, all 11 PC shot
     cooldown/multiposition bays. The level-start Player checkpoint is static
     instead of a large stack local (Player and checkpoint: 200 bytes each).
-    Sidekick HUD state cache: 4 bytes;
+    Sidekick HUD state cache: 4 bytes; pause message pointer: 4 bytes;
+    campaign difficulty baseline: 1 byte (plus alignment);
     replay loadout controls: 3 bytes.
     Normal boot uses 1,492 stack bytes, below the 0xA00 reserve (2026-10-21).
   - `sprites.c` piece cache — up to 88 slots x 4 bytes (48 for episode 2);
@@ -314,7 +324,7 @@ Fill and keep current.
 - Entity caps: enemies 100, enemy shots 60, player shots 64, explosions 64.
 - ROM: unified cartridge (2026-10-21): fixed .text ~3.24 MB,
   initial .data 90; far graphics and extra option/weapon frames bring the used physical ROM
-  end to ~7.25 MB, padded to 8 MB (86%). The fixed region still has ~400 KB
+  end to 7,260,477 bytes, padded to 8 MB (86%). The fixed region still has ~400 KB
   of headroom. The shipped SGDK math source is
   recompiled with function sections (read-only include); garbage collection
   removes ~393 KB of unused log/sqrt tables and other unused math routines.

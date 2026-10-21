@@ -11,6 +11,7 @@
 #include "game/rng.h"
 #include "game/timing.h"
 #include "game/sidekick.h"
+#include "game/difficulty.h"
 #include "gen_data/items.h"
 #include "gen_data/episodes.h"
 #include "gen_data/script.h"
@@ -150,6 +151,53 @@ static void test_shop_trade_in(void)
     CHECK(!shop_buy(SHOP_FRONT, 1, 3));     /* cannot afford */
     players[0].cash = c3 - c1;
     CHECK(shop_buy(SHOP_FRONT, 1, 3) && players[0].cash == 0 && players[0].weapon_power[0] == 3);
+}
+
+static void test_difficulty_progression(void)
+{
+    static const uint8_t choices[] = {1, 2, 3, 4, 6, 8};
+    unsigned i;
+    for (i = 0; i < sizeof(choices); i++) {
+        game_new(test_episode, choices[i]);
+        CHECK(game.initial_difficulty == choices[i]);
+        CHECK(game.base_difficulty == choices[i]);
+        CHECK(game.difficulty == (test_episode == 4 && choices[i] > 1 ? choices[i] - 1 : choices[i]));
+    }
+    CHECK(difficulty_for_score(49999, DIFFICULTY_NORMAL) == DIFFICULTY_EASY);
+    CHECK(difficulty_for_score(50000, DIFFICULTY_NORMAL) == DIFFICULTY_NORMAL);
+    CHECK(difficulty_for_score(87500, DIFFICULTY_NORMAL) == DIFFICULTY_HARD);
+    test_init();
+    players[0].cash = 100000;
+    game.difficulty = DIFFICULTY_10; /* temporary event-46 change */
+    script_level_done(1, 1);
+    CHECK(game.base_difficulty == DIFFICULTY_NORMAL); /* death never raises it */
+    script_level_done(1, 0);
+    CHECK(game.base_difficulty == difficulty_for_score(player_total_value(), DIFFICULTY_NORMAL));
+    CHECK(game.difficulty == game.base_difficulty && game.difficulty < DIFFICULTY_10);
+    players[0].cash = 0;
+    game_level_complete();
+    CHECK(game.base_difficulty >= DIFFICULTY_HARD); /* selling/spending cannot lower it */
+    game_start_level(LEVEL_FIRST);
+    CHECK(game.difficulty == game.base_difficulty - (test_episode == 4));
+}
+
+static void test_enemy_difficulty(void)
+{
+    unsigned id;
+    test_init();
+    for (id = 1; id <= ENEMY_NUM; id++) {
+        const EnemyDat *d = &enemy_dat[id];
+        Enemy e;
+        if (d->armor != 20 || d->value <= 1 || d->value >= 1000) continue;
+        game.difficulty = DIFFICULTY_EASY;
+        enemy_make(&e, id, 0);
+        CHECK(e.armorleft == 16 && e.evalue == d->value);
+        game.difficulty = DIFFICULTY_SUICIDE;
+        enemy_make(&e, id, 0);
+        CHECK(e.armorleft == 40 && e.evalue == d->value * 5 / 2);
+        break;
+    }
+    CHECK(id <= ENEMY_NUM);
 }
 
 static void test_episode_transition(void)
@@ -316,6 +364,8 @@ int main(void)
         test_events_follow_cur_loc();
         test_script_walk();
         test_shop_trade_in();
+        test_difficulty_progression();
+        test_enemy_difficulty();
         test_sidekick_shop();
         test_sidekick_charge_and_ammo();
         test_sidekick_movement();

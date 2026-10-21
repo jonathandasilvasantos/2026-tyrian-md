@@ -16,7 +16,7 @@ void game_start_level(uint8_t lv)
     game.level = lv;
     game.frame = 0;
     game.power = 0;
-    game.difficulty = game.initial_difficulty;
+    game.difficulty = game.base_difficulty;
     /* tyrian2.c: episode 4 reduces the selected difficulty for each level. */
     if (LEVEL_EPISODE == 4 && game.difficulty > DIFFICULTY_EASY) game.difficulty--;
     game.map_x_ofs[0] = game.map_x_ofs[1] = game.map_x_ofs[2] = 0;

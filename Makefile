@@ -20,7 +20,7 @@ HOST_CFLAGS := -std=c11 -O2 -Wall -Wextra -Werror -Isrc $(GAME_FLAGS)
 ROM_EXTRA_FLAGS := -fno-strict-aliasing -Wno-unterminated-string-initialization $(GAME_FLAGS)
 JAVA_HEADLESS_TOOL_OPTIONS := -Djava.awt.headless=true
 
-GAME_SRCS := $(wildcard src/game/*.c) src/gen_data/items.c src/gen_data/level.c src/gen_data/script.c src/gen_data/episode_tables.c src/gen_data/motion.c src/gen_data/shot_shapes.c
+GAME_SRCS := $(wildcard src/game/*.c) src/gen_data/items.c src/gen_data/level.c src/gen_data/script.c src/gen_data/episode_tables.c src/gen_data/motion.c src/gen_data/shot_shapes.c src/gen_data/difficulty.c
 GAME_HDRS := $(wildcard src/game/*.h)
 
 EPISODE     ?= 1

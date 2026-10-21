@@ -8,6 +8,7 @@
 #include "player.h"
 #include "rng.h"
 #include "gen_data/items.h"
+#include "gen_data/difficulty.h"
 
 Enemy enemies[ENEMY_MAX];
 uint8_t enemy_avail[ENEMY_MAX] __attribute__((aligned(4)));
@@ -117,9 +118,10 @@ uint8_t enemy_make(Enemy *e, uint16_t edat, int16_t unique_bank)
     e->edlevel = d->dlevel;
     e->fixedmovey = 0;
     e->filter = 0;
-    e->evalue = d->value;      /* Easy/Normal: no difficulty scaling */
+    /* Float multipliers from JE_makeEnemy are precomputed at build time. */
+    e->evalue = enemy_value_scale[(uint16_t)(game.difficulty + 1) * (ENEMY_NUM + 1) + edat];
     if (edat_armor(edat) > 0) {
-        e->armorleft = edat_armor(edat);   /* Normal: armor as is (255 = invulnerable) */
+        e->armorleft = enemy_armor_scale[((uint16_t)(game.difficulty + 1) << 8) | edat_armor(edat)];
         avail = EA_ACTIVE;
         e->scoreitem = 0;
     } else {
