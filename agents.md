@@ -260,7 +260,9 @@ Fill and keep current.
   - `enemies` — 100 x 124 bytes = 12,400 (largest structure; trim later).
   - `enemy_shots` 1,440, `explosions` 1,024, `gfx_slot` 2,032 (one byte per
     sprite piece of the level), shot collision lists ~300.
-  - total .bss 38 KB of 64 KB (2026-10-18); deepest stack 1,248 bytes.
+  - total .bss depends on the episode: episode 1 34,372 bytes; episode 2
+    34,980; episode 3 34,364; episode 4 30,124 (2026-10-21). Short opening-level runs use
+    1,492 stack bytes, below the 0xA00 reserve.
   - `sprites.c` piece cache — up to 88 slots x 4 bytes (48 for episode 2);
     `debug_hold_level` — 1 byte for headless replay flow control.
 - VRAM map: (region — tiles/bytes)
@@ -275,7 +277,10 @@ Fill and keep current.
     defaults: plane B 0xC000, window 0xD000, plane A 0xE000, sprites 0xF800).
 - Entity caps: enemies 100, enemy shots 60, player shots 64, explosions 64.
 - ROM: code ?, graphics ?, levels ?, music ?, SFX ?, text ?
-  - episode 1 complete (18 levels, sprites of its 17 banks, script, shop,
+  - separate-episode builds (2026-10-21): episode 1 ~3.16 MB, episode 2
+    ~2.75 MB, episode 3 ~2.90 MB, episode 4 ~2.95 MB; each is padded to 4 MB. These are opening
+    replay checks, not full-campaign completion or visual verification.
+  - episode 1 (18 levels, sprites of its 17 banks, script, shop,
     fonts): 2.82 MB; + 38 sound effects/voices (XGM2 PCM) 0.40 MB = 3.23 MB
     of 4 MB; + 41 songs (XGM2) 0.54 MB, sprite pieces limited to the drawn
     ones (-0.5 MB), effects at 6.65 kHz: 3.12 MB (74%) (2026-10-18).
@@ -296,6 +301,12 @@ Fill and keep current.
   (bottom 4 px of tile A + top 4 px of tile B) for each vertical pair that
   occurs (max 515 pairs per layer). Maps stay in tile units.
 - Worst frame (cycles): (level — cycles — date)
+  - short opening replays, 600 ticks, 2026-10-21 (no level restart after
+    death): episode 2 avg busy 79,623 / max 127,856 cycles, 24 frames
+    without idle (before starting-funds correction); episode 3 83,553 / 127,856, 13 frames without idle;
+    episode 4 66,499 / 119,884, none without idle. These are smoke profiles,
+    not worst-case bounds: measured loop iterations can span a vblank.
+    Musashi does not model DMA/FIFO stalls or Z80 timing.
   - stage 8, `make bench-levels` (2000 ticks, constant fire + weapon
     sweep, ideal 3429 frames): level 1 3765 (+9.8%), 10 3648 (+6.4%),
     14 3602, 4 3589, 3 3619, 18 3544, the rest within +3% (2026-10-18).
@@ -329,8 +340,9 @@ Fill and keep current.
   exceptions, reads past 4 MB and stack beyond SGDK's 0xA00 reserve.
   Converter unit tests (Python) join tier 0 from stage 2. The runner sets
   `debug_hold_level` at the first tick: death/end does not restart or leave
-  the level during a fixed-length replay, matching the host. Normal game
-  flow is unchanged. Performance results after death must be interpreted
+  the level during a fixed-length replay, matching the host. The default
+  600-tick boot replay also checks `test/replays/boot.hashes` by episode.
+  Normal game flow is unchanged. Performance results after death must be interpreted
   accordingly (no live-player restart).
 - **Setup (once)**: `make setup-sgdk` strips LTO IR from `sgdk/lib/libmd.a`
   and LTO flags from `sgdk/makefile.gen` (GCC 15 rejects SGDK 2.00's LTO).

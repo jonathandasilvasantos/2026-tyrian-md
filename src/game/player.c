@@ -6,6 +6,7 @@
 #include "enemy.h"
 #include "rng.h"
 #include "gen_data/items.h"
+#include "gen_data/level.h"
 
 Player players[1];
 
@@ -22,7 +23,9 @@ void player_init(void)
     p->weapon_power[0] = p->weapon_power[1] = 1;
     p->weapon_mode = 1;
     p->shield_item = 4;          /* Gencore High Energy Shield */
-    p->cash = 0;
+    /* tyrian2.c:newGame, single-player story starting funds. */
+    static const uint16_t initial_cash[4] = {10000, 15000, 20000, 30000};
+    p->cash = initial_cash[LEVEL_EPISODE - 1];
     p->debug_held = 0;
 }
 

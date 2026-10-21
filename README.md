@@ -8,17 +8,21 @@ Current builds contain one episode in a 4 MB cartridge. Built with SGDK 2.00 fro
 the freeware Tyrian 2.1 data and the [OpenTyrian](https://github.com/opentyrian/opentyrian)
 source as the behavioral reference.
 
-**Status:** episode 1 is playable end to end — 18 levels, the original
-episode script (shops, destination choice, level flow), enemies and level
-events ported line by line, weapons and generator power, HUD, shop with the
-original trade-in economy, the 41 songs converted to YM2612/PSG, sound
-effects and voices. See `agents.md` §8 for every deviation from the PC game
-and §9 for budgets.
+**Status:** all four Tyrian 2.1 episodes can be converted and built as
+separate ROMs (`EPISODE=1..4`, 62 levels total). The engine includes episode
+scripts, shops and destination choice, enemies and level events, front/rear
+weapons, generator power, HUD, the 41 songs converted to YM2612/PSG, sound
+effects and voices. Story starting funds follow the original episode.
 
-Not yet: saves, text screens and data cubes, sidekicks and special weapons,
-the third (top) background layer, combined episode selection/progression.
-Episodes 2–4 can be built separately; their full playthroughs and visual
-accuracy still need validation. A combined 8 MB ROM needs cartridge mapping.
+Validation covers script references for every episode, host unit tests and
+600-tick ROM/host replays at each episode's opening level. Full campaigns,
+visual accuracy and hardware timing still need validation; dense scenes can
+slow down. See `agents.md` §8 for deviations and §9 for budgets.
+
+Still required: a combined cartridge with episode selection/progression,
+saves, text screens and data cubes, sidekicks and special weapons, the third
+(top) background layer, and the remaining OpenTyrian modes/features. The
+budget permits 8 MB, but a combined ROM needs explicit cartridge mapping.
 
 ## Quick start
 
@@ -67,6 +71,9 @@ make bench-levels  # frames used per level (manual, minutes)
 
 `make parity` runs the ROM headless on a 68000 emulator (Musashi) and checks it
 reaches the same game state as the host build on the same input replay.
+The default 600-tick replay must also match the episode hash in
+`test/replays/boot.hashes`. The runner holds the current level after death
+or completion so both builds compare the same ticks.
 
 ## Credits
 

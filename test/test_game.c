@@ -6,6 +6,7 @@
 #include "game/enemy.h"
 #include "game/script.h"
 #include "game/shop.h"
+#include "game/level.h"
 #include "gen_data/script.h"
 #include "gen_data/level.h"
 
@@ -27,6 +28,19 @@ static int live_shots(void)
     return n;
 }
 
+static void test_story_start(void)
+{
+    static const uint16_t cash[4] = {10000, 15000, 20000, 30000};
+    game_init();
+    CHECK(game.level == LEVEL_FIRST);
+    CHECK(players[0].cash == cash[LEVEL_EPISODE - 1]);
+    players[0].cash += 1234;
+    game_start_level(LEVEL_FIRST);
+    CHECK(players[0].cash == cash[LEVEL_EPISODE - 1] + 1234u);
+    game_init();
+    CHECK(players[0].cash == cash[LEVEL_EPISODE - 1]);
+}
+
 static void test_deterministic(void)
 {
     CHECK(run(PAD_LEFT | PAD_UP | PAD_B, 300) == run(PAD_LEFT | PAD_UP | PAD_B, 300));
@@ -35,9 +49,13 @@ static void test_deterministic(void)
 
 static void test_ship_stays_in_pc_bounds(void)
 {
-    run(PAD_LEFT | PAD_UP, 400);
+    unsigned i;
+    /* Exercise movement without level enemies killing the test player. */
+    game_init();
+    for (i = 0; i < 400; i++) player_tick(PAD_LEFT | PAD_UP);
     CHECK(players[0].x == 40 && players[0].y == 10);
-    run(PAD_RIGHT | PAD_DOWN, 400);
+    game_init();
+    for (i = 0; i < 400; i++) player_tick(PAD_RIGHT | PAD_DOWN);
     CHECK(players[0].x == 256 && players[0].y == 160);
 }
 
@@ -76,10 +94,15 @@ static void test_level_spawns_and_kills_enemies(void)
 
 static void test_events_follow_cur_loc(void)
 {
-    unsigned i;
+    uint16_t next_event;
     game_init();
-    for (i = 0; i < 100; i++) game_step(0);
-    CHECK(game.cur_loc == 100);   /* backMove 1 per tick until an event changes it */
+    level_run_events();
+    next_event = game.event_loc;
+    CHECK(next_event > 1);  /* time-zero setup has run */
+    CHECK(levels[game.level].events[next_event - 1].time > game.cur_loc);
+    game.cur_loc = levels[game.level].events[next_event - 1].time;
+    level_run_events();
+    CHECK(game.event_loc > next_event);
 }
 
 /* Walk the episode script winning every level and taking the first
@@ -119,6 +142,7 @@ static void test_shop_trade_in(void)
 
 int main(void)
 {
+    test_story_start();
     test_deterministic();
     test_ship_stays_in_pc_bounds();
     test_velocity_is_capped();

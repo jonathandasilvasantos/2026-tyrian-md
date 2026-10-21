@@ -133,7 +133,12 @@ parity: out/bench68k out/rom.syms out/tyrian_host
 	@r=$$(./out/bench68k $(ROM) out/rom.syms $(BENCH_TICKS) $(REPLAY) | tail -1 | awk '{print $$4}'); \
 	h=$$(./out/tyrian_host $(BENCH_TICKS) $(REPLAY) | awk '{print $$4}'); \
 	if [ "$$r" = "$$h" ]; then echo "   PASS  parity ($(BENCH_TICKS) ticks, hash $$h)"; \
-	else echo "   FAIL  parity: rom $$r host $$h"; exit 1; fi
+	else echo "   FAIL  parity: rom $$r host $$h"; exit 1; fi; \
+	if [ "$(BENCH_TICKS):$(REPLAY)" = "600:test/replays/boot.txt" ]; then \
+	    e=$$(awk -v ep=$(EPISODE) '$$1 == ep {print $$2}' test/replays/boot.hashes); \
+	    if [ "$$h" = "$$e" ]; then echo "   PASS  golden replay (episode $(EPISODE))"; \
+	    else echo "   FAIL  golden replay: episode $(EPISODE), expected $$e got $$h"; exit 1; fi; \
+	fi
 
 # ── Music tools ─────────────────────────────────────────────────────────────
 # lds_dump: OpenTyrian's LDS player + OPL emulator on the host, logs OPL2

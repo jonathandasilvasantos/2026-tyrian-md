@@ -16,11 +16,9 @@ const ROMHeader rom_header = {
     0x000,
     "JD              ",
     0x00000000,
-#if (ENABLE_BANK_SWITCH != 0)
+    /* make rom pads each selected episode to the 4 MB linear cart.
+     * A future combined 8 MB cartridge also needs explicit mapping. */
     0x003FFFFF,
-#else
-    0x000FFFFF,
-#endif
     0xE0FF0000,
     0xE0FFFFFF,
     "  ",
