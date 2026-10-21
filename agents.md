@@ -191,7 +191,14 @@ Every intentional difference from OpenTyrian, one line each:
 - Player shots — cap 64 instead of 81 (`PLAYER_SHOT_MAX`); positions are
   interpolated for display; trails, shot sounds and guided aiming are
   implemented. OPTION_SHAPES projectile bounds/collision and graphics are
-  implemented; JE_doSP sparkles (gr > 1000) remain missing. Debug weapon/power cycling was removed with sidekick shops.
+  implemented, including JE_doSP sparkles (gr > 1000) and impacts on invulnerable armor. Debug weapon/power cycling was removed with sidekick shops.
+- Superpixels — original five sparks on encoded shot frames, damage-based
+  invulnerable-hit bursts, three RNG draws per particle, circular overwrite and
+  15-tick lifetime — 64 particles instead of 101, 1024-angle Q15 sine/cosine and
+  Q8 radial samples replace floats — individual paths differ; five-pixel crosses
+  use eight brightness steps against black before fixed-palette quantization,
+  replacing framebuffer blending. Sparks receive only spare sprite/cache slots
+  after gameplay objects and explosions. Overwritten particles still consume RNG.
 - Sidekicks — all 30 options retain the PC tables, five movement styles,
   charge, firing cooldown and refill rules; orbit uses a 32-bit phase and
   a 1024-entry radius-20 pixel LUT instead of float sin/cos — integer-only
@@ -356,12 +363,11 @@ Fill and keep current.
   - `bg.c free_slots` — 2 bytes per pool slot (1,368 for 1.9).
   - `player_shots` — 64 x 40 bytes = 2,560.
   - `enemies` — 100 x 124 bytes = 12,400 (largest structure; trim later).
-  - `enemy_shots` 1,440, `explosions` 1,024, `gfx_slot` 2,032 (one byte per
-    sprite piece of the level), shot collision lists ~300.
+  - `enemy_shots` 1,440, `explosions` 1,024, `gfx_slot` 985 and `big_slot` 1,234 (one byte per converted piece/frame), shot collision lists ~300.
   - total .bss depends on the episode: episode 1 34,372 bytes; episode 2
     34,980; episode 3 34,364; episode 4 30,124 (historical separate builds).
-    Unified cartridge with sidekicks: .bss 44,848 bytes + .data 90; active table pointers
-    185 bytes, two campaign-state bytes, dynamic sprite-slot count 2 bytes,
+    Unified cartridge with sidekicks: .bss 45,496 bytes + .data 90; active table pointers
+    189 bytes, two campaign-state bytes, dynamic sprite-slot count 2 bytes,
     PAL sprite velocity scale 2 bytes; HUD text uses a 32-bit tick deadline.
     `Player`: 20 pairs of 16-bit history coordinates, two 20-byte companion
     states, option IDs, 32-bit orbit phase, attachment state, all 11 PC shot
@@ -371,9 +377,9 @@ Fill and keep current.
     bytes; rendered scroll: 4 bytes; Astral flag: 1 byte; Plane B mirror:
     4,096 bytes; star rotation: 2 bytes.
     SGDK DMA heap allocations: 9,476 bytes including block headers (8 KB
-    copy buffer and 80 x 16-byte queue); measured heap free: 8,560 bytes,
+    copy buffer and 80 x 16-byte queue); measured heap free: 7,912 bytes,
     with the 0xA00 stack reserve separate. BSS + data + allocated heap +
-    reserved stack: 56,974 of 65,536 bytes.
+    reserved stack: 57,622 of 65,536 bytes.
     Filter simulation: 9 bytes; CRAM output: 128 bytes + 2-byte last-color key.
     Special runtime: 20 bytes (three combo positions and queued execution included); special HUD cache: 2 bytes; replay special ID: 1 byte.
     Sidekick HUD state cache: 4 bytes; pause message pointer: 4 bytes;
@@ -387,12 +393,15 @@ Fill and keep current.
   - Story presentation adds a 4-byte picture pointer, one scene-skip latch and
     two benchmark bytes (8 bytes including alignment); no framebuffer or heap
     allocation. Immediate map upload uses one 80-byte stack row; picture fades
-    use 128 temporary bytes. Heap free is now 8,560 bytes, stack reserve separate.
+    use 128 temporary bytes. Heap free is now 7,912 bytes, stack reserve separate.
   - Datacube cache: 2 x 180 tile IDs = 720 bytes; script cube IDs: 4 bytes;
     pre-command checkpoint cube count: 2 bytes; reader benchmark flag: 1 byte.
     Total BSS growth is 732 bytes including alignment. Cube text is never copied
     into RAM; headers use an 81-byte local title buffer. Selected reader/scroll
     benchmarks reach 1,288 stack bytes, below the 0xA00 reserve.
+  - Superpixel state: 64 x 8 bytes + cursor/live count = 514 bytes; extra
+    piece IDs grow gfx_slot by 128 bytes, active graphics pointer by 4 and
+    render rotation by 2 (648 BSS bytes total). The cache/VRAM regions stay fixed.
 - VRAM map: (region — tiles/bytes)
   - tiles 0-15 SGDK system; 16.. background slot pool, sized per level by
     `BG_POOL_NEED` (684 for 1.9: worst 30-row window, both layers); then free
@@ -412,10 +421,10 @@ Fill and keep current.
   - Datacube reader replaces gameplay VRAM: menu font 16..207, two 180-tile
     text pages at 208..567, face 568..630. Nine lines use 45 hardware sprites,
     five / 160 pixels per scanline; no gameplay objects share the screen.
-- Entity caps: enemies 100, enemy shots 60, player shots 64, explosions 64.
-- ROM: unified cartridge (2026-10-21): fixed .text 3,618,048 bytes,
+- Entity caps: enemies 100, enemy shots 60, player shots 64, explosions 64, cosmetic superpixels 64.
+- ROM: unified cartridge (2026-10-21): fixed .text 3,624,192 bytes,
   initial .data 90; far graphics and extra option/weapon frames bring the used physical ROM
-  end to 7,874,496 bytes, padded to 8 MB (93%). Password codec/UI add ~5.9 KB of code/tables. The fixed region still has 51,878 bytes
+  end to 7,940,032 bytes, padded to 8 MB (94%). Password codec/UI add ~5.9 KB of code/tables. The fixed region still has 45,734 bytes
   of headroom. Datacubes add 133,684 bytes of fixed packed line maps/references
   and 227,008 bytes of far glyph/portrait graphics; 6,338 shared text tiles use
   13-bit IDs. The shipped SGDK math source is
@@ -447,6 +456,13 @@ Fill and keep current.
   (bottom 4 px of tile A + top 4 px of tile B) for each vertical pair that
   occurs (max 515 pairs per layer). Maps stay in tile units.
 - Worst frame (cycles): (level — cycles — date)
+  - Superpixels, episode 3 opening, 600 ticks (2026-10-21): 1,382 loop frames,
+    average busy 90,734 / maximum 127,856 cycles, 227 frames without idle,
+    tick-loop work max 201,212 and render-loop max 292,462; 1,288 stack bytes,
+    2,584-byte gameplay DMA peak. Star drawing/occlusion is a measured bottleneck
+    (20.9% of profiled work); this still misses the full-speed target.
+    Flare and Charge/MegaMissile smoke profiles peak at 2,828 and 4,856 DMA
+    bytes respectively; no selected run exceeds 7 KB. Not worst-case guarantees.
   - episode 4, Astral with stars, 600 ticks: avg busy 71,185 / max 127,856
     cycles, 11 frames without idle; maximum loop work 241,870 cycles; stack
     1,284 bytes. Gameplay DMA peak 4,820 bytes; Plasma Storm 5,044, episode-2
@@ -553,6 +569,12 @@ Fill and keep current.
   passwords and verify the same collection (no duplicated scripted awards).
   Converter tests cover every referenced cube, exact paragraph/word bounds,
   highlight pixels, packed IDs at every alignment and deterministic output.
+  Superpixel tests cover every encoded shot frame 1001..60000, circular
+  overwrite, three RNG draws even for overwritten particles, full lifetime and
+  velocity bounds; shot/immune-impact tests verify the integration. Particle
+  state is hashed. Episode 3 opening/sidekick goldens changed with the restored
+  RNG calls, after independent host, NTSC and PAL agreement. Recording mode
+  now requires both video regions before writing any golden.
   Converter unit tests (Python) join tier 0 from stage 2. The runner sets
   `debug_hold_level` at the first tick: death/end does not restart or leave
   the level during a fixed-length replay, matching the host. The default

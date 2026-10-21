@@ -17,7 +17,7 @@ effects and voices. Story starting funds follow the original episode; episode 4 
 the original difficulty reduction. Six story difficulty choices, enemy scaling,
 score-based difficulty progression, starfields/Astral backgrounds, event/flare
 palette effects, the original story text/pictures/music cues, datacube reading with
-portraits and campaign availability, START pause and shop checkpoint passwords
+portraits and campaign availability, superpixel projectile/impact sparks, START pause and shop checkpoint passwords
 are implemented.
 
 Validation covers script references for every episode, host unit tests and

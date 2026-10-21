@@ -10,6 +10,7 @@
 #include "game/episode.h"
 #include "game/rng.h"
 #include "game/cubes.h"
+#include "game/particles.h"
 #include "game/password.h"
 #include "game/timing.h"
 #include "game/sidekick.h"
@@ -520,6 +521,40 @@ static void test_sidekick_movement(void)
     CHECK(players[0].sidekick[1].y - players[0].y == -20);
 }
 
+static void test_projectile_superpixels(void)
+{
+    unsigned immune, i;
+    for (immune = 0; immune < 2; immune++) {
+        PlayerShot *s;
+        uint32_t expected;
+        uint8_t count = immune ? 4 : 5;
+        test_init();
+        if (immune) {
+            Enemy *e = &enemies[0];
+            *e = (Enemy){0}; enemy_avail[0] = EA_ACTIVE;
+            e->enemycycle = 1; e->ex = 100; e->ey = 86; e->armorleft = 255;
+        }
+        s = &player_shots[0];
+        *s = (PlayerShot){0};
+        s->x = 100; s->y = 80; s->gr = immune ? 1 : 10001;
+        s->avail = 5; s->ani_max = s->player = 1; s->dmg = 2;
+        s->trail = 255; s->blast_filter = 0xD0;
+        rng_seed(123);
+        for (i = 0; i < 3u * count; i++) rng16();
+        expected = rng_state;
+        rng_seed(123);
+        shots_move();
+        CHECK(particles.live == count && rng_state == expected);
+        for (i = 0; i < PARTICLE_MAX; i++) {
+            if (!particles.item[i].life) continue;
+            CHECK(particles.item[i].color == (immune ? 0xD0 : 0xA0));
+            CHECK(particles.item[i].life == 16);
+        }
+        if (immune) CHECK(enemies[0].armorleft == 255 && !s->avail);
+        else CHECK(s->frame == 1 && s->avail);
+    }
+}
+
 static void test_large_projectile_collision(void)
 {
     unsigned special;
@@ -573,6 +608,7 @@ int main(void)
         test_sidekick_charge_and_ammo();
         test_sidekick_movement();
         test_large_projectile_collision();
+        test_projectile_superpixels();
     }
     test_episode_transition();
     test_pal_and_ntsc_timing();

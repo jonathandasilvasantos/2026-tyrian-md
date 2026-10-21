@@ -1,14 +1,15 @@
 /* shots.c — player shot creation and movement, ported from OpenTyrian
  * shots.c (player_shot_create, player_shot_move_and_draw).
  * and the shot-versus-enemy part of tyrian2.c:JE_main.
- * Not ported yet: JE_doSP
- * sparkles (gr > 1000 draws only the mod-1000 frame), Zinglon (slot 80). */
+ * JE_doSP sparkles use the portable particle simulation; Zinglon is a
+ * synthetic collision beam outside the player-shot slots. */
 #include "shots.h"
 #include "game.h"
 #include "player.h"
 #include "enemy.h"
 #include "level.h"
 #include "special.h"
+#include "particles.h"
 #include "gen_data/items.h"
 #include "gen_data/shot_shapes.h"
 
@@ -339,9 +340,11 @@ static int shot_hits(PlayerShot *s, uint8_t beam)
         {
             uint16_t sp = enemy_spawns;
         if (armorleft > dmg) {
-            if (!beam && e->armorleft != 255) {
-                e->armorleft -= (uint8_t)dmg;
-                explosion_setup(s->x, s->y, 0, 0, 0, 0);
+            if (!beam) {
+                if (e->armorleft != 255) {
+                    e->armorleft -= (uint8_t)dmg;
+                    explosion_setup(s->x, s->y, 0, 0, 0, 0);
+                } else particles_spawn(s->x + 6, s->y + 6, dmg / 2 + 3, dmg / 4 + 2, filter);
             }
             game.sound_queue[5] = S_ENEMY_HIT;
             if ((armorleft - dmg <= e->edlevel) && ((!e->edamaged) ^ (e->edani < 0)))
@@ -422,10 +425,13 @@ void shots_move(void)
                 s->xm += s->xm > 0 ? 1 : -1;
             }
         }
-        /* drawn frame: gr + ani before the increment; gr > 1000 shows the
-         * mod-1000 frame (its JE_doSP sparkle is not ported) */
+        /* Drawn frame and superpixels before advancing animation, as on PC. */
         s->frame = s->gr + s->ani;
-        if (s->frame > 1000 && s->frame <= 60000) s->frame %= 1000;
+        if (s->frame > 1000 && s->frame <= 60000) {
+            uint8_t color;
+            s->frame = particle_frame(s->frame, &color);
+            particles_spawn(s->x + 7, s->y + 6, 5, 3, color);
+        }
         if (++s->ani == s->ani_max) s->ani = 0;
         if (!shot_hits(s, 0)) s->avail = 0;
     }

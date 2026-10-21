@@ -2,7 +2,7 @@
 """Compare host/68000 replay cases, optionally recording verified goldens.
 
 Manifest rows: episode hash, or episode left-sidekick right-sidekick [bombs [special]] hash.
-Recording requires both implementations to agree; normal checks never write.
+Recording requires both implementations and both video regions to agree; normal checks never write.
 """
 import argparse
 import os
@@ -42,9 +42,11 @@ def check(manifest, replay, record=False, ticks=600):
         if loadout:
             env["B68K_OPTIONS"] = ",".join(loadout)
         host = state_hash(["out/tyrian_host", str(ticks), replay, episode, *loadout, *bombs, *special], env)
-        rom = state_hash(["out/bench68k", "out/rom.bin", "out/rom.syms", str(ticks), replay], env)
-        if host != rom:
-            raise ValueError(f"episode {episode} options {loadout}: host {host}, ROM {rom}")
+        for region in (0, 1) if record else (int(env.get("B68K_PAL", "0")),):
+            target_env = dict(env, B68K_PAL=str(region))
+            rom = state_hash(["out/bench68k", "out/rom.bin", "out/rom.syms", str(ticks), replay], target_env)
+            if host != rom:
+                raise ValueError(f"episode {episode} options {loadout} PAL={region}: host {host}, ROM {rom}")
         if not record and host != expected:
             raise ValueError(f"episode {episode} options {loadout}: expected {expected}, got {host}")
         if record:

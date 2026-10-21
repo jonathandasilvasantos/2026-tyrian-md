@@ -21,6 +21,7 @@
 #include "game/enemy.h"
 #include "game/special.h"
 #include "game/stars.h"
+#include "game/particles.h"
 #include "bg.h"
 #include "gen_data/sprites.h"
 #include "gen_data/items.h"
@@ -47,7 +48,7 @@ static const u16 *const *big_bank;   /* this level's bank -> big frame tables */
 static u16 big_tile0, big_victim;
 static u16 big_slot_gfx[BIG_SLOTS], big_slot_stamp[BIG_SLOTS];
 static u8 big_slot[BIG_GFX_COUNT];   /* slot + 1 */
-static u16 rot_star;
+static u16 rot_star, rot_particle;
 static u16 rot_es, rot_e, rot_ps, rot_x;   /* rotating start of each list */
 static u16 n;                    /* sprites used this frame */
 static s16 pos_x4[SPR_MAX], pos_y4[SPR_MAX];   /* 12.4 VDP positions (screen + 0x80) */
@@ -100,7 +101,7 @@ void sprites_init(u16 first_tile)
         for (d = -32; d < 32; d++) vel_tab[d + 32] = (s16)((d * frame_velocity) >> 4);
     }
     stamp = 1;
-    victim = rot_es = rot_e = rot_ps = rot_x = 0;
+    victim = rot_es = rot_e = rot_ps = rot_x = rot_particle = 0;
     PAL_setColors(32, spr_palettes, 32, DMA);
     VDP_resetSprites();
 }
@@ -362,6 +363,25 @@ static void draw_player_shots(void)
     }
 }
 
+/* Cosmetic sparks yield cache/sprite slots to all gameplay objects. */
+static void draw_particles(void)
+{
+    u16 i, index = rot_particle;
+    if (!particles.live) return;
+    rot_particle = (rot_particle + 7) & (PARTICLE_MAX - 1);
+    for (i = 0; i < PARTICLE_MAX && n < SPR_MAX; i++) {
+        const Particle *p = &particles.item[index];
+        if (p->life && p->x >= 24 && p->x < 288 && p->y >= 0 && p->y < 184) {
+            u16 before = n;
+            object_delta(p->dx, p->dy);
+            put(particle_gfx[(p->color & 0xF0) / 2 + (p->life >> 1)],
+                lerp(p->x - p->dx, p->x) - 1, lerp(p->y - p->dy, p->y) - 1);
+            if (n != before) sp[-1].size_link = (SPRITE_SIZE(1, 1) << 8) | n;
+        }
+        index = (index + 1) & (PARTICLE_MAX - 1);
+    }
+}
+
 static void draw_explosions(void)
 {
     const Explosion *x = &explosions[rot_x], *end = &explosions[EXPLOSION_MAX];
@@ -438,6 +458,7 @@ void sprites_update(u16 frac, bool ticked)
     draw_enemies();
     draw_player_shots();
     draw_explosions();
+    draw_particles();
     draw_stars();
     if (n == 0) {   /* keep one (off-screen) sprite so the list is valid */
         VDP_setSpriteFull(0, -32, -32, SPRITE_SIZE(1, 1), 0, 0);

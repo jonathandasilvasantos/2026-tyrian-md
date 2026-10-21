@@ -105,6 +105,10 @@ out/test_stars: test/test_stars.c src/game/stars.c src/game/stars.h src/game/rng
 	@mkdir -p out
 	$(CC) $(HOST_CFLAGS) test/test_stars.c src/game/stars.c src/game/rng.c -o $@
 
+out/test_particles: test/test_particles.c src/game/particles.c src/game/particles.h src/game/rng.c src/gen_data/motion.c Makefile
+	@mkdir -p out
+	$(CC) $(HOST_CFLAGS) test/test_particles.c src/game/particles.c src/game/rng.c src/gen_data/motion.c -o $@
+
 out/test_filter: test/test_filter.c src/game/filter.c src/game/filter.h Makefile
 	@mkdir -p out
 	$(CC) $(HOST_CFLAGS) test/test_filter.c src/game/filter.c -o $@
@@ -114,11 +118,12 @@ out/test_password: test/test_password.c $(GAME_SRCS) $(GAME_HDRS) Makefile
 	$(CC) $(HOST_CFLAGS) test/test_password.c $(GAME_SRCS) -o $@
 
 unit-test: gen
-	@$(MAKE) --no-print-directory out/test_game out/test_password out/test_filter out/test_stars
+	@$(MAKE) --no-print-directory out/test_game out/test_password out/test_filter out/test_stars out/test_particles
 	@./out/test_game
 	@./out/test_password
 	@./out/test_filter
 	@./out/test_stars
+	@./out/test_particles
 
 # ── 68000 runner (Musashi) ───────────────────────────────────────────────────
 out/musashi/m68kops.c:
@@ -203,11 +208,12 @@ parity-pal: out/bench68k out/rom.syms out/tyrian_host
 	@B68K_PAL=1 $(MAKE) --no-print-directory parity-episodes parity-sidekicks parity-checkpoint parity-specials parity-combos parity-story parity-cubes
 
 test: rom
-	@$(MAKE) --no-print-directory py-test out/test_game out/test_password out/test_filter out/test_stars parity-episodes parity-sidekicks parity-checkpoint parity-specials parity-combos parity-story parity-cubes parity-pal
+	@$(MAKE) --no-print-directory py-test out/test_game out/test_password out/test_filter out/test_stars out/test_particles parity-episodes parity-sidekicks parity-checkpoint parity-specials parity-combos parity-story parity-cubes parity-pal
 	@./out/test_game
 	@./out/test_password
 	@./out/test_filter
 	@./out/test_stars
+	@./out/test_particles
 
 clean:
 	@rm -rf out

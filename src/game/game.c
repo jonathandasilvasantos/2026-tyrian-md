@@ -4,6 +4,7 @@
 #include "special.h"
 #include "filter.h"
 #include "stars.h"
+#include "particles.h"
 #include "shots.h"
 #include "enemy.h"
 #include "level.h"
@@ -27,6 +28,7 @@ void game_start_level(uint8_t lv)
     level_init();
     filter_init();
     stars_reset();
+    particles_reset();
     enemies_init();
     player_start_level();
     shots_init();
@@ -167,6 +169,7 @@ void game_step(uint16_t pad)
         }
     }
 
+    particles_tick();
     filter_tick();
     game.frame++;
 }
@@ -196,6 +199,16 @@ uint32_t game_hash(void)
         for (i = 0; i < STAR_COUNT; i++) {
             const Star *s = &starfield.star[i];
             h = mix(h, s->position | (uint32_t)s->speed << 16 | (uint32_t)s->color << 24);
+        }
+    }
+    if (particles.last || particles.live) {
+        h = mix(h, 0x5F000000u | particles.last | (uint32_t)particles.live << 8);
+        for (i = 0; i < PARTICLE_MAX; i++) {
+            const Particle *s = &particles.item[i];
+            if (!s->life) continue;
+            h = mix(h, i | (uint32_t)s->life << 8 | (uint32_t)s->color << 16);
+            h = mix(h, (uint16_t)s->x | (uint32_t)(uint16_t)s->y << 16);
+            h = mix(h, (uint8_t)s->dx | (uint16_t)(uint8_t)s->dy << 8);
         }
     }
     if (game.cube_max) h = mix(h, 0xCD000000u | game.cube_max);

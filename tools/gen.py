@@ -581,6 +581,19 @@ def gen_sprites(out, it, lvls, bg_pals):
         gfx.append(img)
         pal_of.append(0)
 
+    # JE_drawSP's five-pixel cross. A black backdrop approximates the PC's
+    # framebuffer blend; the fixed actor palette quantizes all 16 hue banks.
+    particle_gfx = []
+    for color in range(16):
+        for brightness in range(8):
+            particle_gfx.append(len(gfx))
+            img = np.full((16, 16), -1, np.int32)
+            img[1, 1] = color * 16 + brightness
+            for x, y in ((0, 1), (2, 1), (1, 0), (1, 2)):
+                img[y, x] = color * 16 + (brightness >> 1)
+            gfx.append(img)
+            pal_of.append(0)
+
     # Sidekick artwork shares the player's palette. Styles 1/2 use the
     # large sprite sheet; the rest use individual ship-sheet pieces.
     option_small = [0xFFFF] * 305
@@ -821,7 +834,7 @@ def gen_sprites(out, it, lvls, bg_pals):
          "#define GFX_NONE 0xFFFF\n"
          "/* shot frame (1..1000, >500 = sheet 12) -> gfx */\n"
          "extern const u16 shot_gfx[1001];\n"
-         "extern const u16 beam_gfx[1], star_gfx[16];\n"
+         "extern const u16 beam_gfx[1], star_gfx[16], particle_gfx[128];\n"
          "extern const u16 option_small_gfx[305], option_big_gfx[305];\n"
          "typedef struct { u16 gfx; u8 x, y; } SpecialPiece;\n"
          "extern const SpecialPiece special_pieces[];\n"
@@ -848,6 +861,7 @@ def gen_sprites(out, it, lvls, bg_pals):
     c += emit.c_array("u16", "option_small_gfx", option_small)
     c += emit.c_array("u16", "option_big_gfx", option_big)
     c += emit.c_array("u16", "star_gfx", star_gfx)
+    c += emit.c_array("u16", "particle_gfx", particle_gfx)
     c += emit.c_array("u16", "beam_gfx", [beam_index])
     c += emit.c_array("u16", "special_starts", special_starts)
     c += emit.c_array("u8", "special_counts", special_counts, 16, "{}")
@@ -910,9 +924,11 @@ def gen_motion(out):
     values = [math.floor(20 * math.sin(2 * math.pi * i / 1024) + 0.5) for i in range(1024)]
     emit.write_if_changed(os.path.join(out, "motion.h"), emit.HEADER +
                           '#ifndef GEN_MOTION_H\n#define GEN_MOTION_H\n#include "game/types.h"\n'
-                          'extern const int8_t orbit_sine[1024];\n#endif\n')
+                          'extern const int8_t orbit_sine[1024];\nextern const int16_t particle_sine[1024];\n#endif\n')
     emit.write_if_changed(os.path.join(out, "motion.c"), emit.HEADER + '#include "motion.h"\n' +
-                          emit.c_array("int8_t", "orbit_sine", values, 32, "{}"))
+                          emit.c_array("int8_t", "orbit_sine", values, 32, "{}") +
+                          emit.c_array("int16_t", "particle_sine",
+                                       [round(32767 * math.sin(2 * math.pi * i / 1024)) for i in range(1024)], 16, "{}"))
 
 
 def main():
