@@ -128,6 +128,14 @@ void player_tick(uint16_t pad)
     if (pad & PAD_RIGHT) p->x += KEY_SPEED;
     accel_x = p->x - mouse_x;
     accel_y = p->y - mouse_y;
+    {
+        uint8_t axes = (accel_x != 0) + (accel_y != 0), symbol = 0;
+        if (axes == 1) {
+            symbol = accel_y < 0 ? 1 : accel_y > 0 ? 2 : accel_x < 0 ? 3 : 4;
+            if (pad & PAD_B) symbol += 4;
+        } else if (!axes && !(pad & PAD_B)) symbol = 9;
+        special_combo(symbol);
+    }
 
     if (p->x_friction_ticks > 0) {
         p->x_friction_ticks--;

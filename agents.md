@@ -125,7 +125,7 @@ what changed, why, worst-case visible difference. Approved directions:
   PSG for simple blips. Sample rates reduced to fit ROM.
 - **Scope**: all episodes and features present in OpenTyrian are the target
   (user request, 2026-10-21). Start with episodes 1–4 from Tyrian 2.1 data;
-  combo specials, special palette effects, text screens and the third background layer remain
+  special palette effects, text screens and the third background layer remain
   required; shop checkpoints use passwords; sidekicks and all four episode flows are implemented. Two-player mode, Destruct, networking, jukebox and
   setup/config screens come later. Additional data-dependent content needs
   its original data source; do not invent missing content.
@@ -207,6 +207,12 @@ Every intentional difference from OpenTyrian, one line each:
   VDP limits and no framebuffer — source transparency is preserved, but the
   PC's per-pixel colour blend becomes opaque palette colour. Large volleys
   may flicker under sprite/cache limits; damage and collision stay unchanged.
+- Ship combos — original 26 key sequences and 14 ship mappings, sampled
+  before inertia/clipping; costs include the PC all/half-shield edge cases —
+  no gameplay adaptation. Invulnerability widened to 16 bits (up to 400 ticks
+  in the current loadout), replacing the earlier 8-bit implementation.
+  Sidekick movement history now updates even without equipped options so
+  mid-level option summons follow the existing flight path.
 - Sidekick input — A activates left finite-ammo options, Z the right and
   the right attachment on a 6-button pad; 3-button A activates both —
   fit both controller types while retaining C rear-mode switching — finite
@@ -242,8 +248,10 @@ Every intentional difference from OpenTyrian, one line each:
   4 retains its one-step reduction.
 - Equipped specials — story types 1–11 use the PC projectiles, repulsor,
   attractor, flare durations/frequencies, linked firing, waits and primary-fire
-  edge trigger; 47 data records are converted — portable simulation — combo
-  activation/types 12–18 and palette/Astral-background effects remain pending.
+  edge trigger; 47 data records are converted — portable simulation — standard ship combos, shield/armor costs, invulnerability, repair, spray
+  flares and option spawning are implemented. SuperTyrian mode and palette/
+  Astral-background effects remain pending; repair-P2 awaits the second-player
+  engine.
   HUD uses a six-character name and readiness text instead of the PC icon.
 - Zinglon — beam uses a cached white block and at most 18 sprites, rounded
   to 8-pixel columns, behind enemy bullets — no framebuffer brightening — solid
@@ -320,14 +328,14 @@ Fill and keep current.
     sprite piece of the level), shot collision lists ~300.
   - total .bss depends on the episode: episode 1 34,372 bytes; episode 2
     34,980; episode 3 34,364; episode 4 30,124 (historical separate builds).
-    Unified cartridge with sidekicks: .bss 36,252 bytes + .data 90; active table pointers
+    Unified cartridge with sidekicks: .bss 36,260 bytes + .data 90; active table pointers
     181 bytes, two campaign-state bytes, dynamic sprite-slot count 2 bytes,
     PAL sprite velocity scale 2 bytes; HUD text uses a 32-bit tick deadline.
     `Player`: 20 pairs of 16-bit history coordinates, two 20-byte companion
     states, option IDs, 32-bit orbit phase, attachment state, all 11 PC shot
     cooldown/multiposition bays. The level-start Player checkpoint is static
-    instead of a large stack local (Player and checkpoint: 202 bytes each).
-    Special runtime: 16 bytes; special HUD cache: 2 bytes; replay special ID: 1 byte.
+    instead of a large stack local (Player and checkpoint: 204 bytes each).
+    Special runtime: 20 bytes (three combo positions and queued execution included); special HUD cache: 2 bytes; replay special ID: 1 byte.
     Sidekick HUD state cache: 4 bytes; pause message pointer: 4 bytes;
     campaign difficulty baseline: 1 byte (plus alignment);
     replay loadout controls: 4 bytes; checkpoint replay flag: 1 byte (fits alignment); superbomb HUD cache: 1 byte.
@@ -379,6 +387,10 @@ Fill and keep current.
   (bottom 4 px of tile A + top 4 px of tile B) for each vertical pair that
   occurs (max 515 pairs per layer). Maps stay in tile units.
 - Worst frame (cycles): (level — cycles — date)
+  - episode 1, Talon invulnerability + Atom Bomb combo replay, 600 ticks:
+    avg busy 72,714 / max 118,840 cycles, no frame without idle; loop work
+    peaks at 132,888 cycles, stack 1,284 bytes. Not a worst-case bound
+    (2026-10-21).
   - episode 1, Zinglon equipped, 600-tick replay: avg busy 72,032 / max
     127,856 cycles, two frames without idle, 1,284-byte stack; maximum loop
     work 153,164 cycles. Opening smoke profile, not a worst-case guarantee
@@ -445,7 +457,9 @@ Fill and keep current.
   Plasma Storm loadout for large projectile artwork/collision; `game_hash`
   includes superbomb stock/cooldown and charge, ammo, movement history, orbit and attachment state when
   sidekicks are equipped.
-  Two ten-bomb and eight equipped-special replays also run in both regions. Checkpoint replays on the
+  Two ten-bomb, eight equipped-special and two ship-combo replays also run
+  in both regions. Special hashes include combo progress, queued execution,
+  cooldowns and effect state; player hashes include invulnerability ticks. Checkpoint replays on the
   68000 encode/load the opening state of each episode, then must match the
   independent host and existing goldens in both regions. Host checkpoint tests
   cover every symbol position for transcription rejection without state changes.

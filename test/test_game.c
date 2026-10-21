@@ -280,6 +280,44 @@ static void test_zinglon_collision(void)
     CHECK(!special_state.pulse);
 }
 
+static void test_ship_combos(void)
+{
+    unsigned i;
+    static const uint8_t sequence[] = {2,1,2,5};
+    test_init();
+    players[0].shield = 40; players[0].shot_repeat[8] = 0;
+    for (i = 0; i < sizeof(sequence); i++) special_combo(sequence[i]);
+    CHECK(special_state.executed == 37);
+    special_tick(0);
+    CHECK(players[0].shield == 0 && players[0].invulnerable_ticks == 400);
+    CHECK(special_state.executed == 0);
+    players[0].shield = 3;
+    for (i = 0; i < sizeof(sequence); i++) special_combo(sequence[i]);
+    special_tick(0);
+    CHECK(players[0].shield == 0 && players[0].invulnerable_ticks == 400);
+    players[0].armor = 2; special_state.executed = 38;
+    special_tick(0);
+    CHECK(players[0].armor == 2 && !live_shots()); /* armor cost cannot kill */
+    players[0].armor = 3; special_state.executed = 38;
+    special_tick(0);
+    CHECK(players[0].armor == 1 && live_shots());
+    special_init(); players[0].shot_repeat[8] = 0;
+    players[0].shield = 20; special_state.executed = 43;
+    special_tick(0);
+    CHECK(players[0].shield == 0 && players[0].armor == 7);
+    special_state.executed = 31;
+    special_tick(0);
+    CHECK(players[0].option_id[0] == 19);
+    special_state.executed = 31;
+    special_tick(0);
+    CHECK(players[0].option_id[1] == 19);
+    CHECK(players[0].sidekick[1].style == options[19].style);
+    special_state.executed = 20;
+    players[0].armor = 8;
+    special_tick(0);
+    CHECK(players[0].armor == 4 && special_state.flare == 71 && special_state.spray);
+}
+
 static void test_episode_transition(void)
 {
     unsigned ep;
@@ -449,6 +487,7 @@ int main(void)
         test_bomb_pickups();
         test_equipped_specials();
         test_zinglon_collision();
+        test_ship_combos();
         test_sidekick_shop();
         test_sidekick_charge_and_ammo();
         test_sidekick_movement();

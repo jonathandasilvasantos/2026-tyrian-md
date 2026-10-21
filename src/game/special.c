@@ -4,6 +4,7 @@
 #include "enemy.h"
 #include "shots.h"
 #include "rng.h"
+#include "sidekick.h"
 #include "gen_data/items.h"
 
 SpecialState special_state;
@@ -16,14 +17,14 @@ void special_init(void)
 uint8_t special_equip(uint8_t id)
 {
     Player *p = &players[0];
-    if (!id || id > SPECIAL_NUM || specials[id].type < 1 || specials[id].type > 11) return 0;
+    if (!id || id > SPECIAL_NUM || specials[id].type < 1 || specials[id].type > 18) return 0;
     p->special_id = id;
     p->shot_multi_pos[8] = p->shot_multi_pos[10] = 0;
     p->shot_repeat[8] = 10; p->shot_repeat[10] = 0;
     return 1;
 }
 
-static void activate(uint8_t id)
+static void activate(uint8_t id, uint8_t cost)
 {
     const Special *s = &specials[id];
     SpecialState *st = &special_state;
@@ -56,9 +57,30 @@ static void activate(uint8_t id)
             if (p->y != e->ey) e->eyc += p->y > e->ey ? 1 : -1;
         }
         break;
+    case 12:
+        p->invulnerable_ticks = (uint16_t)cost * 10;
+        break;
+    case 13:
+        p->armor += cost / 4 + 1;
+        if (p->armor > 28) p->armor = 28;
+        game.sound_queue[3] = S_POWERUP;
+        break;
+    case 14: /* Repair P2 has no visible recipient in the single-player engine. */
+        game.sound_queue[3] = S_POWERUP;
+        break;
+    case 17: case 18: {
+        uint8_t side = s->type == 18 || p->option_id[0] == s->weapon;
+        p->option_id[side] = s->weapon;
+        /* PC indexes this reset with LEFT/RIGHT_SIDEKICK (0/1), not the
+         * shot-bay enum (2/3); retain that behavior. */
+        p->shot_multi_pos[side] = 0;
+        sidekicks_refresh();
+        game.sound_queue[s->type == 18 ? 4 : 3] = S_POWERUP;
+        break;
+    }
     default:
         if (!st->flare) st->flare_start = 1;
-        st->weapon = s->weapon; st->linked = 0; st->filter = -99;
+        st->weapon = s->weapon; st->linked = 0; st->spray = 0; st->filter = -99;
         switch (s->type) {
         case 5: st->filter = 7; st->frequency = 2; st->flare = 50; break;
         case 6: st->filter = 1; st->frequency = 7; st->flare = 200 + 25 * power; break;
@@ -71,6 +93,9 @@ static void activate(uint8_t id)
             st->frequency = 8; st->flare = 8 + 2 * power; st->linked = 1;
             st->next_wait = s->power; break;
         case 10: st->frequency = 8; st->flare = 14 + 4 * power; st->linked = 1; break;
+        case 16:
+            st->frequency = 8; st->flare = (uint16_t)cost * 16 + 8;
+            st->linked = st->spray = 1; break;
         case 11:
             st->frequency = s->power; st->flare = 10 + 10 * power;
             st->astral = 20 + 10 * power; break;
@@ -85,11 +110,32 @@ void special_tick(uint16_t pad)
     SpecialState *st = &special_state;
     if (p->shot_repeat[8]) p->shot_repeat[8]--;
     if (st->wait) st->wait--;
+    if (st->executed && !p->shot_repeat[8] && !st->flare) {
+        uint8_t cost = specials[st->executed].power, affordable = 1;
+        if (cost) {
+            if (cost < 98) {
+                if (p->shield >= cost) p->shield -= cost;
+                else affordable = 0;
+            } else if (cost == 98) {
+                if (p->shield < 4) affordable = 0;
+                cost = p->shield; p->shield = 0;
+            } else if (cost == 99) {
+                cost = p->shield >> 1; p->shield = cost;
+            } else {
+                cost -= 100;
+                if (p->armor > cost) p->armor -= cost;
+                else affordable = 0;
+            }
+        }
+        p->shot_multi_pos[8] = p->shot_multi_pos[10] = 0;
+        if (affordable) activate(st->executed, cost);
+        st->executed = 0;
+    }
     if (p->special_id) {
         if (!(pad & PAD_B)) st->held = 0;
         else if (!p->shot_repeat[8] && !st->held && !st->flare && !st->wait) {
             st->held = 1;
-            activate(p->special_id);
+            activate(p->special_id, 0);
         }
     }
     if (st->astral) st->astral--;
@@ -98,11 +144,17 @@ void special_tick(uint16_t pad)
          * brightness effect awaits the hardware renderer. */
         if (st->filter != -99) (void)rng_mod(2);
         if (rng_mod(6) < st->frequency) {
+            int shot = PLAYER_SHOT_MAX;
             if (st->linked) {
-                if (!p->shot_repeat[8]) shot_create(0, 8, p->x, p->y, st->weapon, 1);
+                if (!p->shot_repeat[8]) shot = shot_create(0, 8, p->x, p->y, st->weapon, 1);
             } else {
                 int16_t x = rng_mod(280), y = rng_mod(180);
-                shot_create(0, 8, x, y, st->weapon, 1);
+                shot = shot_create(0, 8, x, y, st->weapon, 1);
+            }
+            if (st->spray && shot != PLAYER_SHOT_MAX) {
+                player_shots[shot].xm = rng_mod(5) - 2;
+                player_shots[shot].ym = rng_mod(5) - 2;
+                if (!player_shots[shot].ym) player_shots[shot].ym++;
             }
         }
         if (--st->flare == 1) st->wait = st->next_wait;

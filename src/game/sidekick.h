@@ -2,6 +2,7 @@
 #ifndef GAME_SIDEKICK_H
 #define GAME_SIDEKICK_H
 #include "types.h"
+void sidekicks_refresh(void); /* JE_drawOptions: refill/reinitialize both options */
 void sidekicks_init(void);
 void sidekicks_before_move(void);
 void sidekicks_record_move(int16_t old_x, int16_t old_y);

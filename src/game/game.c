@@ -187,9 +187,13 @@ uint32_t game_hash(void)
     h = mix(h, (uint16_t)p->x_velocity | (uint32_t)(uint16_t)p->y_velocity << 16);
     h = mix(h, p->weapon_id[0] | (uint32_t)p->weapon_id[1] << 16);
     h = mix(h, p->weapon_power[0] | p->weapon_power[1] << 8 | (uint32_t)p->weapon_mode << 16);
-    h = mix(h, p->armor | p->shield << 8 | (uint32_t)p->is_alive << 16);
-    if (p->special_id) {
+    h = mix(h, p->armor | p->shield << 8 | (uint32_t)p->is_alive << 16 | (uint32_t)p->invulnerable_ticks << 17);
+    if (p->special_id || special_state.flare || special_state.zinglon || special_state.executed ||
+        special_state.combo[0] || special_state.combo[1] || special_state.combo[2] ||
+        p->shot_repeat[8] > 1 || p->shot_repeat[10] > 1) {
         const SpecialState *st = &special_state;
+        h = mix(h, st->combo[0] | (uint32_t)st->combo[1] << 8 | (uint32_t)st->combo[2] << 16 | (uint32_t)st->executed << 24);
+        h = mix(h, p->invulnerable_ticks | (uint32_t)st->spray << 16);
         h = mix(h, p->special_id | (uint32_t)p->shot_repeat[8] << 8 | (uint32_t)p->shot_repeat[10] << 16);
         h = mix(h, st->flare | (uint32_t)st->astral << 16);
         h = mix(h, st->weapon | (uint32_t)st->zinglon << 16 | (uint32_t)st->pulse << 24);

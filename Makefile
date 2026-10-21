@@ -28,7 +28,7 @@ BENCH_TICKS ?= 600
 REPLAY      ?= test/replays/boot.txt
 MUSASHI_REV := 313ebf1bd9f4d0d93341eb5ce21fd8a119e9dbdd
 
-.PHONY: all music setup-sgdk gen rom rom-demo host unit-test py-test test bench-68k parity parity-episodes parity-sidekicks parity-checkpoint parity-specials parity-pal clean
+.PHONY: all music setup-sgdk gen rom rom-demo host unit-test py-test test bench-68k parity parity-episodes parity-sidekicks parity-checkpoint parity-specials parity-combos parity-pal clean
 
 all: rom
 
@@ -169,6 +169,9 @@ parity-sidekicks: out/bench68k out/rom.syms out/tyrian_host
 	@python3 tools/check_replays.py test/replays/sidekicks.hashes test/replays/sidekicks.txt
 	@python3 tools/check_replays.py test/replays/bombs.hashes test/replays/sidekicks.txt
 
+parity-combos: out/bench68k out/rom.syms out/tyrian_host
+	@python3 tools/check_replays.py test/replays/combos.hashes test/replays/combos.txt
+
 parity-specials: out/bench68k out/rom.syms out/tyrian_host
 	@python3 tools/check_replays.py test/replays/specials.hashes test/replays/sidekicks.txt
 
@@ -177,10 +180,10 @@ parity-checkpoint:
 
 parity-pal: out/bench68k out/rom.syms out/tyrian_host
 	@echo "   PAL replay checks"
-	@B68K_PAL=1 $(MAKE) --no-print-directory parity-episodes parity-sidekicks parity-checkpoint parity-specials
+	@B68K_PAL=1 $(MAKE) --no-print-directory parity-episodes parity-sidekicks parity-checkpoint parity-specials parity-combos
 
 test: rom
-	@$(MAKE) --no-print-directory py-test out/test_game out/test_password parity-episodes parity-sidekicks parity-checkpoint parity-specials parity-pal
+	@$(MAKE) --no-print-directory py-test out/test_game out/test_password parity-episodes parity-sidekicks parity-checkpoint parity-specials parity-combos parity-pal
 	@./out/test_game
 	@./out/test_password
 

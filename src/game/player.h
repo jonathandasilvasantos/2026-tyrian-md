@@ -44,7 +44,7 @@ typedef struct {
     uint8_t mode_button_held, superbombs, special_id;
     uint8_t is_alive, exploding_ticks;
     uint8_t armor, initial_armor, shield, shield_max, shield_item;
-    uint8_t invulnerable_ticks;
+    uint16_t invulnerable_ticks;
     uint8_t hit_area_x, hit_area_y;  /* shot_hit_area_x/y */
     uint32_t cash;
 } Player;

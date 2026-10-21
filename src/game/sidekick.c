@@ -19,6 +19,17 @@ void sidekicks_init(void)
     p->attachment_move = 0;
     p->attachment_linked = 1;
     p->attachment_return = 0;
+    sidekicks_refresh();
+    for (i = 0; i < 2; i++) {
+        p->sidekick[i].px = p->sidekick[i].x = p->x + (i ? 16 : -14);
+        p->sidekick[i].py = p->sidekick[i].y = p->y;
+    }
+}
+
+void sidekicks_refresh(void)
+{
+    Player *p = &players[0];
+    unsigned i;
     for (i = 0; i < 2; i++) {
         const Option *o = &options[p->option_id[i]];
         Sidekick *s = &p->sidekick[i];
@@ -28,8 +39,6 @@ void sidekicks_init(void)
         s->animation_enabled = o->animation == 1;
         s->animation_frame = s->charge = 0;
         s->charge_ticks = 20;
-        s->px = s->x = p->x + (i ? 16 : -14);
-        s->py = s->y = p->y;
     }
 }
 
@@ -54,7 +63,7 @@ void sidekicks_record_move(int16_t old_x, int16_t old_y)
 {
     Player *p = &players[0];
     unsigned i;
-    if ((!p->option_id[0] && !p->option_id[1]) || (p->x == old_x && p->y == old_y)) return;
+    if (p->x == old_x && p->y == old_y) return;
     /* The PC records after movement, before playfield clipping. */
     for (i = 1; i < 20; i++) {
         p->old_x[i - 1] = p->old_x[i];
