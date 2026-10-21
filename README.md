@@ -17,7 +17,8 @@ effects and voices. Story starting funds follow the original episode; episode 4 
 the original difficulty reduction.
 
 Validation covers script references for every episode, host unit tests and
-600-tick ROM/host replays at each episode's opening level. Full campaigns,
+600-tick ROM/host replays at each episode's opening level on both NTSC and
+PAL. Both regions run the same 35 Hz simulation. Full campaigns,
 visual accuracy and hardware timing still need validation; dense scenes can
 slow down. See `agents.md` §8 for deviations and §9 for budgets.
 

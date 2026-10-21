@@ -21,6 +21,7 @@
  * cartridge space or mapped read past physical ROM, a stack deeper than SGDK's 0xA00 reserve, or no
  * game_tick for B68K_HANG frames (default 600).
  * Environment: B68K_EPISODE=n selects episode n (default ROM menu default),
+ * B68K_PAL=1 selects the 50 Hz/312-line timing model,
  * B68K_LEVEL=n plays level n directly (ROM debug_level),
  * B68K_FUNC=name per-instruction cycle histogram of one function,
  * B68K_TOP=n functions listed (default 20), B68K_FRAMES=1
@@ -33,7 +34,8 @@
 #include <stdint.h>
 #include "m68k.h"
 
-#define FRAME_CYC 127856u
+static unsigned frame_cycles = 127856u, scanlines = 262u, pal_mode;
+#define FRAME_CYC frame_cycles
 #define VBLANK_LINE 224u
 #define CYC_PER_LINE 488u
 #define MAX_SYMS 20000
@@ -137,7 +139,7 @@ void bench_instr_hook(unsigned int pc) {
     prev_pc = pc; prev_cyc = c;
 }
 
-static unsigned vcount(void) { return (unsigned)(((now_cycles() - frame_base) / CYC_PER_LINE) % 262u); }
+static unsigned vcount(void) { return (unsigned)(((now_cycles() - frame_base) / CYC_PER_LINE) % scanlines); }
 
 static unsigned pad_read(int port) {
     unsigned m = port ? 0 : pad;
@@ -159,13 +161,13 @@ static unsigned rd8(unsigned a) {
     if (a >= 0xE00000) return ram[a & 0xFFFF];
     if (a >= 0xA00000 && a < 0xA10000) { if ((a & 0x7FFF) < 0x2000) return zram[a & 0x1FFF] | ((a & 0x1FFF) == 0x102 ? 0x80 : 0); return 0; }
     if (a >= 0xA10000 && a < 0xA10020) {
-        switch (a & 0x1F) { case 0x01: return 0xA0; case 0x03: return pad_read(0); case 0x05: return pad_read(1); default: return 0; }
+        switch (a & 0x1F) { case 0x01: return pal_mode ? 0xE0 : 0xA0; case 0x03: return pad_read(0); case 0x05: return pad_read(1); default: return 0; }
     }
     if (a == 0xA11100 || a == 0xA11101) return 0;   /* Z80 bus granted */
     if (a >= 0xC00000 && a < 0xC00020) {
         unsigned r = a & 0x1F;
         if (r == 4 || r == 6) return 0x34;
-        if (r == 5 || r == 7) return 0x02 | (vcount() >= VBLANK_LINE ? 0x8 : 0);
+        if (r == 5 || r == 7) return 0x02 | pal_mode | (vcount() >= VBLANK_LINE ? 0x8 : 0);
         if (r == 8) return vcount() & 0xFF;
     }
     return 0;
@@ -175,7 +177,7 @@ unsigned int m68k_read_memory_16(unsigned int a) {
     a &= 0xFFFFFF;
     if (a >= 0xC00000 && a < 0xC00020) {
         unsigned r = a & 0x1F, v = vcount();
-        if (r == 4 || r == 6) return 0x3600 | (v >= VBLANK_LINE ? 0x8 : 0);   /* FIFO empty, no DMA */
+        if (r == 4 || r == 6) return 0x3600 | pal_mode | (v >= VBLANK_LINE ? 0x8 : 0);   /* FIFO empty, no DMA */
         if (r == 8) return (v & 0xFF) << 8;
         return 0;
     }
@@ -311,6 +313,9 @@ int main(int argc, char **argv) {
     if (getenv("B68K_PROF")) sscanf(getenv("B68K_PROF"), "%u,%u", &prof_a, &prof_b);
     hang = getenv("B68K_HANG") ? (unsigned)atoi(getenv("B68K_HANG")) : 600;
 
+    if (getenv("B68K_PAL") && atoi(getenv("B68K_PAL"))) {
+        pal_mode = 1; scanlines = 312; frame_cycles = scanlines * CYC_PER_LINE;
+    }
     m68k_init(); m68k_set_cpu_type(M68K_CPU_TYPE_68000); m68k_pulse_reset();
     for (frame_no = 0; ticks <= want; frame_no++) {
         uint64_t busy;

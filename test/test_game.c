@@ -9,6 +9,7 @@
 #include "game/level.h"
 #include "game/episode.h"
 #include "game/rng.h"
+#include "game/timing.h"
 #include "gen_data/items.h"
 #include "gen_data/episodes.h"
 #include "gen_data/script.h"
@@ -177,6 +178,29 @@ static void test_episode_transition(void)
     CHECK(enemy_dat[1].armor == 254 && enemy_dat[1].shapebank == 2);
 }
 
+static void test_pal_and_ntsc_timing(void)
+{
+    uint32_t hashes[2];
+    unsigned pal;
+    for (pal = 0; pal < 2; pal++) {
+        TickClock clock;
+        unsigned frame, ticks = 0, frames = pal ? 250 : 300;
+        game_new(1, DIFFICULTY_NORMAL);
+        tick_clock_init(&clock, pal);
+        for (frame = 0; frame < frames; frame++) {
+            if (tick_clock_step(&clock)) {
+                game_step(PAD_B | (ticks / 30 & 1 ? PAD_LEFT : PAD_RIGHT));
+                ticks++;
+            }
+            CHECK(tick_clock_fraction(&clock) < TICK_DEN);
+        }
+        CHECK(ticks == 175); /* five seconds, 35 Hz in either region */
+        CHECK(clock.accumulator == 0);
+        hashes[pal] = game_hash();
+    }
+    CHECK(hashes[0] == hashes[1]);
+}
+
 int main(void)
 {
     for (test_episode = 1; test_episode <= EPISODE_COUNT; test_episode++) {
@@ -193,6 +217,7 @@ int main(void)
         test_shop_trade_in();
     }
     test_episode_transition();
+    test_pal_and_ntsc_timing();
     if (failures) return 1;
     puts("   PASS  test_game (four episodes and campaign transitions)");
     return 0;

@@ -4,6 +4,7 @@
 #include <genesis.h>
 #include "game/game.h"
 #include "game/episode.h"
+#include "game/timing.h"
 #include "game/player.h"
 #include "game/script.h"
 #include "gen_data/script.h"
@@ -60,15 +61,16 @@ static void level_screen_setup(const char *name)
 /* Play one level; returns 1 if the player died. */
 static u8 play_level(const FlowStep *st)
 {
-    u16 acc = 0;
+    TickClock clock;
+    tick_clock_init(&clock, IS_PAL_SYSTEM);
 
     game_start_level(st->level);
     level_screen_setup(level_names[st->name]);
     sound_music(st->song);
     while (TRUE) {
-        bool ticked = FALSE;
-        for (acc += TICK_NUM; acc >= TICK_DEN; acc -= TICK_DEN) {
-            ticked = TRUE;
+        bool ticked = tick_clock_step(&clock);
+        u16 frac = tick_clock_fraction(&clock);
+        if (ticked) {
 #ifdef AUTOPLAY
             /* make rom-demo: fire and sweep, for emulator captures */
             game_tick(BUTTON_B | ((game.frame / 70) & 1 ? BUTTON_RIGHT : BUTTON_LEFT)
@@ -79,8 +81,8 @@ static u8 play_level(const FlowStep *st)
             if (hash_enabled) frame_hash = game_hash();
         }
         /* tick frames carry the game logic: keep the rest for the others */
-        bg_update(acc, ticked);
-        sprites_update(acc, ticked);
+        bg_update(frac, ticked);
+        sprites_update(frac, ticked);
         if (!ticked) {
             sound_flush();
             hud_update();

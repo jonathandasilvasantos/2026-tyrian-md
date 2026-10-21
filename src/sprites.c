@@ -46,15 +46,16 @@ static u16 rot_es, rot_e, rot_ps, rot_x;   /* rotating start of each list */
 static u16 n;                    /* sprites used this frame */
 static s16 pos_x4[SPR_MAX], pos_y4[SPR_MAX];   /* 12.4 VDP positions (screen + 0x80) */
 static s16 vel_x4[SPR_MAX], vel_y4[SPR_MAX];   /* per-frame velocity, 12.4 */
+static s16 frame_velocity;     /* 149/256 NTSC, 179/256 PAL ticks/frame */
 static s16 cur_vx, cur_vy;       /* per-frame velocity (12.4) of the object being put */
-/* tick delta d (-32..31) -> per-frame velocity in 1/16 px: (d * 149) >> 4 */
+/* tick delta d (-32..31) -> per-frame velocity in 1/16 px: (d * frame_velocity) >> 4 */
 static s16 vel_tab[64];
 
 /* set the velocity of the next sprites from the object's tick delta */
 static inline void object_delta(s16 dx, s16 dy)
 {
-    cur_vx = (u16)(dx + 32) < 64 ? vel_tab[dx + 32] : (s16)((dx * 149) >> 4);
-    cur_vy = (u16)(dy + 32) < 64 ? vel_tab[dy + 32] : (s16)((dy * 149) >> 4);
+    cur_vx = (u16)(dx + 32) < 64 ? vel_tab[dx + 32] : (s16)((dx * frame_velocity) >> 4);
+    cur_vy = (u16)(dy + 32) < 64 ? vel_tab[dy + 32] : (s16)((dy * frame_velocity) >> 4);
 }
 static VDPSprite *sp;            /* next free entry of vdpSpriteCache */
 static s16 frac_q;               /* frac * 21: lerp factor, 1/256 units */
@@ -67,6 +68,7 @@ static const s8 *lerp_row;
 void sprites_init(u16 first_tile)
 {
     u16 i;
+    frame_velocity = IS_PAL_SYSTEM ? 179 : 149;
     gfx_slots = SPRITES_PIECE_COUNT(level_bgs[game.level].pool_need);
     big_bank = big_gfx_level[game.level];
     ship_tile = first_tile;
@@ -88,7 +90,7 @@ void sprites_init(u16 first_tile)
         s16 f, d;
         for (f = 0; f < TICK_DEN; f++)
             for (d = -32; d < 32; d++) lerp_tab[f][d + 32] = (s8)(((s32)d * (f * 21)) >> 8);
-        for (d = -32; d < 32; d++) vel_tab[d + 32] = (s16)((d * 149) >> 4);
+        for (d = -32; d < 32; d++) vel_tab[d + 32] = (s16)((d * frame_velocity) >> 4);
     }
     stamp = 1;
     victim = rot_es = rot_e = rot_ps = rot_x = 0;
@@ -125,8 +127,8 @@ static inline s16 lerp(s16 prev, s16 cur)
 }
 
 /* Remember sprite n's position and velocity for the tick-frame advance:
- * the object moves cur_dx/cur_dy per tick = 7/12 of it per frame
- * (149/256, kept in 1/16 px). */
+ * the object moves cur_dx/cur_dy per tick: 149/256 per NTSC frame,
+ * 179/256 per PAL frame, kept in 1/16 px. */
 static inline void track(s16 x, s16 y)
 {
     pos_x4[n] = x << 4;

@@ -28,7 +28,7 @@ BENCH_TICKS ?= 600
 REPLAY      ?= test/replays/boot.txt
 MUSASHI_REV := 313ebf1bd9f4d0d93341eb5ce21fd8a119e9dbdd
 
-.PHONY: all music setup-sgdk gen rom rom-demo host unit-test py-test test bench-68k parity parity-episodes clean
+.PHONY: all music setup-sgdk gen rom rom-demo host unit-test py-test test bench-68k parity parity-episodes parity-pal clean
 
 all: rom
 
@@ -160,8 +160,12 @@ parity-episodes: out/bench68k out/rom.syms out/tyrian_host
 	@./out/bench68k --self-test-mapper
 	@for ep in 1 2 3 4; do $(MAKE) --no-print-directory parity EPISODE=$$ep || exit $$?; done
 
+parity-pal: out/bench68k out/rom.syms out/tyrian_host
+	@echo "   PAL replay checks"
+	@B68K_PAL=1 $(MAKE) --no-print-directory parity-episodes
+
 test: rom
-	@$(MAKE) --no-print-directory py-test out/test_game parity-episodes
+	@$(MAKE) --no-print-directory py-test out/test_game parity-episodes parity-pal
 	@./out/test_game
 
 clean:

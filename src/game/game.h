@@ -20,7 +20,7 @@
 
 /* Original game rate: PIT 0x4300 (69.57 Hz) / frameCountMax 2 = 34.78 Hz.
  * The Genesis runs TICK_NUM ticks every TICK_DEN 60 Hz frames (35 Hz,
- * +0.6%); see agents.md §8. */
+ * +0.6%); PAL uses 7 ticks per 10 display frames. See timing.h and §8. */
 #define TICK_NUM 7
 #define TICK_DEN 12
 

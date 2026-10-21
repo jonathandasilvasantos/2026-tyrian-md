@@ -17,7 +17,7 @@
 static u16 bar_tile, solid_tile;
 static u32 shown_cash;
 static u8 shown_armor, shown_shield, shown_power, shown_front, shown_rear, dirty;
-static u16 text_timer;
+static u32 text_until; /* game tick deadline, independent of redraw rate */
 static u16 shown_boss;           /* armor shown on the boss bar + 1, 0 = hidden */
 
 static void put_text(u16 x, u16 y, const char *s, u16 w)
@@ -83,7 +83,7 @@ void hud_init(u16 first_tile, const char *level_name)
     put_text(COL0, 23, level_name, 6);
     put_text(COL0, 24, strlen(level_name) > 6 ? level_name + 6 : "", 6);
     dirty = 1;
-    text_timer = 0;
+    text_until = 0;
     shown_boss = 0;
     hud_update();
 }
@@ -160,11 +160,12 @@ void hud_update(void)
         num(buf + 3, shown_rear, 2);
         put_text(COL0, 17, p->weapon_id[1] ? buf : "-", 6);
     }
-    if (game.window_text) {   /* event 16: show for ~4 s */
+    if (game.window_text) {   /* JE_drawTextWindow: textErase = 100 game ticks */
         hud_message(window_texts[game.window_text - 1]);
         game.window_text = 0;
-        text_timer = 240;
-    } else if (text_timer && --text_timer == 0) {
+        text_until = game.frame + 100;
+    } else if (text_until && game.frame >= text_until) {
+        text_until = 0;
         hud_message("");
     }
     boss_bar();

@@ -177,7 +177,10 @@ Every intentional difference from OpenTyrian, one line each:
 - Timing — game logic ticks 7 times per 12 frames (35 Hz) against the PC's
   34.78 Hz (PIT 0x4300 / frameCountMax 2) — the Genesis has no 69.57 Hz
   timer and 60 Hz logic would need every speed rescaled — 0.6% faster.
-  Backgrounds scroll every frame (0.582 px per backMove unit), not per tick.
+  PAL runs 7 ticks per 10 display frames (35 Hz), with normalized render
+  fractions and 179/256 tick velocity per frame; NTSC uses 149/256.
+  Backgrounds scroll every frame, not per tick. PAL fractions are rounded
+  to the renderer's 12-step interpolation grid (at most 1/24 tick error).
 - Colors — PC colors are lifted by gamma 0.7 before matching, distances in
   OKLab with lightness x2 — the Genesis' darkest non-black level is 52 and
   plain nearest-color turned dark browns red — level art looks brighter than
@@ -230,7 +233,8 @@ Every intentional difference from OpenTyrian, one line each:
   velocity otherwise); background streaming, HUD and sound also skip tick
   frames unless a row is due. Explosion slots come from a free stack
   instead of the PC's first-free scan (visual only).
-- HUD bottom bar — event 16 window texts (4 s) and the boss bar (event 79,
+- HUD bottom bar — event 16 window texts (100 simulation ticks, as on PC)
+  and the boss bar (event 79,
   most damaged linked enemy, as draw_boss_bar) instead of the PC's top bar.
 - Title screen — "Tyrian MD": the PC title (pic 4 + PLANET_SHAPES logo)
   redrawn with "MD" via Gemini image generation (res/art/title_md.png,
@@ -268,8 +272,9 @@ Fill and keep current.
     sprite piece of the level), shot collision lists ~300.
   - total .bss depends on the episode: episode 1 34,372 bytes; episode 2
     34,980; episode 3 34,364; episode 4 30,124 (historical separate builds).
-    Unified cartridge: .bss 35,588 bytes + .data 90; active table pointers
-    133 bytes, two campaign-state bytes, dynamic sprite-slot count 2 bytes.
+    Unified cartridge: .bss 35,592 bytes + .data 90; active table pointers
+    133 bytes, two campaign-state bytes, dynamic sprite-slot count 2 bytes,
+    PAL sprite velocity scale 2 bytes; HUD text uses a 32-bit tick deadline.
     Normal boot uses 1,492 stack bytes, below the 0xA00 reserve (2026-10-21).
   - `sprites.c` piece cache — up to 88 slots x 4 bytes (48 for episode 2);
     `debug_hold_level` — 1 byte for headless replay flow control.
@@ -284,7 +289,7 @@ Fill and keep current.
     `_Static_assert` on the total (1440) and the tilemaps at 0xC000 (SGDK
     defaults: plane B 0xC000, window 0xD000, plane A 0xE000, sprites 0xF800).
 - Entity caps: enemies 100, enemy shots 60, player shots 64, explosions 64.
-- ROM: unified cartridge (2026-10-21): fixed .text 3,239,168 bytes,
+- ROM: unified cartridge (2026-10-21): fixed .text ~3.24 MB,
   initial .data 90; far graphics 3,487,232; physical end 0x6D3600 (~7.16 MB),
   padded to 8 MB (85%). Fixed-region headroom is ~420 KB. The shipped SGDK math source is
   recompiled with function sections (read-only include); garbage collection
@@ -315,6 +320,10 @@ Fill and keep current.
   (bottom 4 px of tile A + top 4 px of tile B) for each vertical pair that
   occurs (max 515 pairs per layer). Maps stay in tile units.
 - Worst frame (cycles): (level — cycles — date)
+  - PAL episode 2 opening, 600 ticks: 872 game-loop frames (858.6 ideal),
+    avg busy 84,295 / max 151,518 of 152,256 cycles; stack 1,264 bytes.
+    This short run has no frame without idle, but some loop work spans
+    vblank; full-level timing remains unverified (2026-10-21).
   - unified ROM, 600-tick opening replay, 2026-10-21: episode 2 avg busy
     80,008 / max 127,856 cycles, 24 frames without idle; episode 4 (Normal
     selected, Easy internally as on PC) 66,058 / 118,516, none without idle.
@@ -359,7 +368,9 @@ Fill and keep current.
   exceptions, CPU reads outside the logical 4 MB cartridge window, mapper
   reads past physical ROM, DMA source boundary errors and stack beyond
   SGDK's 0xA00 reserve. All four episode opening replays run in tier 0,
-  together with a synthetic test of all 16 physical mapper banks.
+  in both NTSC and PAL, together with a synthetic test of all 16 physical
+  mapper banks and a host test that both clocks reach the same state after
+  five seconds.
   Converter unit tests (Python) join tier 0 from stage 2. The runner sets
   `debug_hold_level` at the first tick: death/end does not restart or leave
   the level during a fixed-length replay, matching the host. The default
