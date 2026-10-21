@@ -69,8 +69,8 @@ static unsigned force_bombs, force_checkpoint, force_special;
 static uint32_t special_addr, story_page_addr, story_picture_addr;
 static unsigned force_story, story_page, story_picture, force_cubes, reader_start_frame, reader_started;
 static uint32_t cubes_debug_addr, cube_reader_addr, mode_addr;
-static unsigned force_mode, force_buddy;
-static uint32_t buddy_addr;
+static unsigned force_mode, force_buddy, force_bonus;
+static uint32_t buddy_addr, bonus_addr;
 static unsigned reader_frame_dma, reader_peak_dma;
 static uint32_t checkpoint_addr;
 static uint32_t tick_addr, hash_addr, crash_lo, crash_hi, die_addr, hold_level_addr, main_addr;
@@ -139,6 +139,7 @@ void bench_instr_hook(unsigned int pc) {
         if (cubes_debug_addr) wr8(cubes_debug_addr, force_cubes);
         if (mode_addr) wr8(mode_addr, force_mode);
         if (buddy_addr) wr8(buddy_addr, force_buddy);
+        if (bonus_addr) wr8(bonus_addr, force_bonus);
         if (force_story && story_page_addr && story_picture_addr) {
             wr8(story_page_addr, story_page + 1);
             wr8(story_picture_addr, story_picture);
@@ -279,6 +280,7 @@ static void load_syms(const char *path) {
         if (!strcmp(name, "debug_level")) level_addr = addr;
         if (!strcmp(name, "debug_episode")) episode_addr = addr;
         if (!strcmp(name, "debug_buddy")) buddy_addr = addr;
+        if (!strcmp(name, "debug_bonus")) bonus_addr = addr;
         if (!strcmp(name, "debug_mode")) mode_addr = addr;
         if (!strcmp(name, "debug_cubes")) cubes_debug_addr = addr;
         if (!strcmp(name, "cube_screen")) cube_reader_addr = addr;
@@ -388,6 +390,7 @@ int main(int argc, char **argv) {
             fprintf(stderr, "B68K_MODE requires 1 ENGAGE / 2 GALAGA and B68K_LEVEL\n"); return 2;
         }
     }
+    force_bonus = getenv("B68K_BONUS") && atoi(getenv("B68K_BONUS"));
     force_buddy = getenv("B68K_BUDDY") && atoi(getenv("B68K_BUDDY"));
     if (force_buddy && force_mode != 2) { fprintf(stderr, "B68K_BUDDY requires GALAGA\n"); return 2; }
     if (getenv("B68K_PROF")) sscanf(getenv("B68K_PROF"), "%u,%u", &prof_a, &prof_b);

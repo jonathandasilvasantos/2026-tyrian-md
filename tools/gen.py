@@ -180,7 +180,7 @@ def gen_levels(out, ep, nums):
          "typedef struct {\n"
          "    const LevelEvent *events;    /* + a sentinel at time 65500 (JE_loadMap) */\n"
          "    const uint16_t *enemies;     /* levelEnemy[] */\n"
-         "    uint16_t event_count;\n    uint8_t enemy_max;\n    uint8_t map_x, map_x3;\n"
+         "    uint16_t event_count;\n    uint8_t enemy_max;\n    uint8_t map_x, map_x3, flags;\n"
          "} LevelDef;\n"
          f"#define LEVEL_COUNT {len(nums)}\n"
          f"#define LEVEL_EPISODE {ep}\n"
@@ -188,6 +188,10 @@ def gen_levels(out, ep, nums):
          "extern const LevelDef levels[LEVEL_COUNT];\n#endif\n")
     c = emit.HEADER + '#include "level.h"\n'
     entries = []
+    flags = {}
+    for line in level.load_script(ep):
+        if line.startswith("]L"):
+            flags[script_mod.atoi(line[25:])] = (line[28:29] == "$") | ((line[27:28] == "$") << 1)
     for i, num in enumerate(nums):
         lvl = level.load_level(ep, num)
         c += f"static const uint16_t lv{i}_enemies[] = {{" + ",".join(str(x) for x in lvl.enemies + [0]) + "};\n"
@@ -196,7 +200,7 @@ def gen_levels(out, ep, nums):
             "{%d,%d,%d,%d,%d,%d,%d,%d}" % (e.time, e.type, e.dat4, e.dat, e.dat2, e.dat3, e.dat5, e.dat6)
             for e in evs) + "\n};\n"
         entries.append(f"    {{ lv{i}_events, lv{i}_enemies, {len(lvl.events)}, {len(lvl.enemies)}, "
-                       f"{lvl.map_x[0]}, {lvl.map_x[2]} }}")
+                       f"{lvl.map_x[0]}, {lvl.map_x[2]}, {flags.get(num, 0)} }}")
     c += "const LevelDef levels[LEVEL_COUNT] = {\n" + ",\n".join(entries) + "\n};\n"
     emit.write_if_changed(os.path.join(out, "level.h"), h)
     emit.write_if_changed(os.path.join(out, "level.c"), c)
@@ -219,7 +223,7 @@ def gen_script(out, ep):
          "extern const char *const level_names[];\n"
          f"#define PLANET_COUNT {len(planets)}\n"
          "extern const char *const planet_names[PLANET_COUNT + 1];   /* 1-based */\n"
-         "extern const char *const window_texts[9];   /* event 16 (helptext.c outputs) */\n#endif\n")
+         "extern const char *const window_texts[10];   /* event 16 + bonus activation */\n#endif\n")
     c = emit.HEADER + '#include "script.h"\n'
     c += emit.c_array("uint8_t", "script_ops", list(ops), 16, "{}")
     c += emit.c_array("uint16_t", "script_sections", sections, 16, "{}")
@@ -234,7 +238,8 @@ def gen_script(out, ep):
     c += "const char *const level_names[] = {" + ",".join(cstr(n) for n in names) + "};\n"
     c += "const char *const planet_names[PLANET_COUNT + 1] = {\"\"," + ",".join(cstr(n) for n in planets) + "};\n"
     outs = (script_mod.help_section("** Section 8") + [""] * 9)[:9]
-    c += "const char *const window_texts[9] = {" + ",".join(cstr(n) for n in outs) + "};\n"
+    outs.append(script_mod.help_section("** Section 4")[59])
+    c += "const char *const window_texts[10] = {" + ",".join(cstr(n) for n in outs) + "};\n"
     emit.write_if_changed(os.path.join(out, "script.h"), h)
     emit.write_if_changed(os.path.join(out, "script.c"), c)
     print(f"   gen: episode {ep} script: {len(sections) - 1} sections, {len(ops)} bytes, {len(shops)} shops")

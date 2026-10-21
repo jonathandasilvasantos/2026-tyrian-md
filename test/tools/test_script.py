@@ -25,6 +25,9 @@ def test_episode_levels_and_destinations(episode, first):
             assert nxt == 0 or nxt < len(sections)
             assert 1 <= song <= 41
             assert name < len(names)
+            source = next(line for line in level.load_script(episode)
+                          if line.startswith("]L") and script.atoi(line[25:]) == lv + 1)
+            assert flags == ((source[28:29] == "$") | ((source[27:28] == "$") << 1))
             seen.append(lv)
             size = 6
         elif op == script.OP_CHOOSE:

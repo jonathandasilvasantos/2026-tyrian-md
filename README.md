@@ -21,7 +21,8 @@ portraits and campaign availability, superpixel projectile/impact sparks, START 
 are implemented. Scripted ENGAGE equipment, the 21 SuperTyrian combos and
 the GALAGA lives/bonus-checkpoint loop and pickup-linked second ship
 (rotating gun, charge shots, armor and bombs) are also ported. Purple balls
-use the original per-power collection thresholds.
+use the original per-power collection thresholds. Bonus portals preserve their
+original destination/music, and bonus stages advance after death.
 
 Validation covers script references for every episode, host unit tests and
 600-tick ROM/host replays at each episode's opening level on both NTSC and

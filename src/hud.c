@@ -215,8 +215,8 @@ void hud_update(void)
     }
     if (game.window_text) {   /* JE_drawTextWindow: textErase = 100 game ticks */
         hud_message(window_texts[game.window_text - 1]);
+        text_until = game.frame + (game.window_text == 10 ? game.bonus_display : 100);
         game.window_text = 0;
-        text_until = game.frame + 100;
     } else if (text_until && game.frame >= text_until) {
         text_until = 0;
         hud_message("");

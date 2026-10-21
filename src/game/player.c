@@ -322,7 +322,7 @@ void player_collide_for(uint8_t player_num)
         ev = e->evalue;
         if (ev > 29999) {
             /* 30000: purple ball; 30001+: arcade/2-player weapons and items,
-             * which a story game ignores (except the ball's cash) */
+             * which a story game ignores (the ball retains its original power rule) */
             if (ev == 30000) {
                 if (game_mode.galaga) mode_collect_buddy(player_num);
                 else {
@@ -352,7 +352,13 @@ void player_collide_for(uint8_t player_num)
             enemy_avail[z] = EA_FREE;
             game.sound_queue[7] = S_POWERUP;
         } else if (ev > 10000 && enemy_avail[z] == EA_ITEM) {
-            enemy_avail[z] = EA_FREE;    /* bonus level entry: level flow later */
+            if (!game.bonus_section) {
+                game.bonus_section = ev - 10000;
+                game.bonus_display = 150;
+                game.music_track = 31; /* play_song(30): Zanac */
+                game.window_text = 10;
+                enemy_avail[z] = EA_FREE;
+            }
         } else if (e->scoreitem) {
             enemy_avail[z] = EA_FREE;
             game.sound_queue[7] = S_ITEM;

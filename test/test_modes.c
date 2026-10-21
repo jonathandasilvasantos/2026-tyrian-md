@@ -170,11 +170,54 @@ static void test_buddy(void)
     }
 }
 
+
+static void test_bonus_navigation(void)
+{
+    uint8_t episode;
+    uint32_t cash;
+    for (episode = 1; episode <= 4; episode++) {
+        int slot;
+        game_new(episode, DIFFICULTY_NORMAL); game_start_level(LEVEL_FIRST);
+        slot = enemy_new(0, 577, 0);
+        CHECK(slot);
+        enemies[slot - 1].ex = players[0].x; enemies[slot - 1].ey = players[0].y;
+        game_step(0);
+        CHECK(game.bonus_section == 20 && game.bonus_display == 149 && game.music_track == 31);
+    }
+    game_new(1, DIFFICULTY_NORMAL); game_start_level(LEVEL_FIRST);
+    cash = players[0].cash;
+    pickup(1, 10017);
+    CHECK(game.bonus_section == 17 && game.bonus_display == 150 && game.music_track == 31);
+    CHECK(game.window_text == 10 && players[0].cash == cash && !game.end_level);
+    enemies[0] = (Enemy){.ex=players[0].x,.ey=players[0].y,.evalue=10008};
+    enemy_avail[0] = EA_ITEM;
+    player_collide();
+    CHECK(enemy_avail[0] == EA_ITEM && game.bonus_section == 17 && game.bonus_display == 150);
+    game_step(0); CHECK(game.bonus_display == 149);
+    script_level_done(8, 0);
+    CHECK(script.section == 17 && !script.died);
+    game_start_level(LEVEL_FIRST);
+    CHECK(!game.bonus_section && !game.bonus_display && !game.music_track);
+    { uint8_t section = script.section;
+      script_level_done(8, 1); CHECK(script.section == section && script.died);
+    }
+    game_start_level(3); /* BUBBLES: original bonus flag, death advances. */
+    CHECK(levels[game.level].flags);
+    players[0].cash += 123;
+    game.level_timer = 1; game.level_timer_countdown = 0;
+    script_level_done(8, 1);
+    CHECK(script.section == 8 && script.died && script.timer_expired);
+    CHECK(players[0].cash == cash + 123);
+    game_start_level(LEVEL_FIRST);
+    script_level_done(17, 0); CHECK(!script.timer_expired);
+}
+
 int main(void)
 {
     uint8_t episode;
     test_mode_events();
     test_buddy();
+    test_bonus_navigation();
     for (episode = 1; episode <= 4; episode++) {
         Player *p = &players[0];
         unsigned i;

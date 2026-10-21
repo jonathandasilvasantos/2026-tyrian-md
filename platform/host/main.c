@@ -13,6 +13,7 @@
 #include "game/player.h"
 #include "game/special.h"
 #include "game/mode.h"
+#include "game/enemy.h"
 
 int main(int argc, char **argv)
 {
@@ -45,6 +46,10 @@ int main(int argc, char **argv)
     if (getenv("B68K_BUDDY") && atoi(getenv("B68K_BUDDY"))) {
         if (!game_mode.galaga) return 2;
         mode_collect_buddy(1);
+    }
+    if (getenv("B68K_BONUS") && atoi(getenv("B68K_BONUS"))) {
+        int slot = enemy_new(0, 577, 0);
+        if (slot) { enemies[slot - 1].ex = players[0].x; enemies[slot - 1].ey = players[0].y; }
     }
     if (argc > 6) {
         int bombs = atoi(argv[6]);

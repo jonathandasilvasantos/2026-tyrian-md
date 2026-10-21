@@ -8,6 +8,7 @@
 #include "game/episode.h"
 #include "game/timing.h"
 #include "game/player.h"
+#include "game/enemy.h"
 #include "game/password.h"
 #include "game/special.h"
 #include "game/stars.h"
@@ -43,7 +44,7 @@ volatile u8 debug_episode;
 volatile u8 debug_loadout, debug_left_option, debug_right_option, debug_bombs, debug_special;
 /* Headless runner compares a fixed number of ticks, including after death. */
 volatile u8 debug_hold_level, debug_checkpoint;
-volatile u8 debug_story_page, debug_story_picture, debug_cubes, debug_mode, debug_buddy;
+volatile u8 debug_story_page, debug_story_picture, debug_cubes, debug_mode, debug_buddy, debug_bonus;
 
 /* game_tick: one simulation step.  Kept as a real function (noinline) so
  * tools/bench68k can count ticks and feed replay pads by its address. */
@@ -97,6 +98,10 @@ static u8 play_level(const FlowStep *st)
         game_start_level(st->level);
     }
     if (debug_buddy && game_mode.galaga) mode_collect_buddy(1);
+    if (debug_bonus) {
+        u16 slot = enemy_new(0, 577, 0); /* original bonus portal, section 20 */
+        if (slot) { enemies[slot - 1].ex = players[0].x; enemies[slot - 1].ey = players[0].y; }
+    }
     if (debug_bombs) players[0].superbombs = debug_bombs <= 10 ? debug_bombs : 10;
     if (debug_special) special_equip(debug_special);
     level_screen_setup(level_names[st->name]);
@@ -216,7 +221,7 @@ restart_campaign:
                 message_screen("GAME OVER", "Returning to checkpoint");
                 if (mode_restore()) break;
             }
-            if (died) {
+            if (died && !levels[game.level].flags) {
                 u32 orbit_phase = players[0].orbit_phase;
                 players[0] = saved;
                 /* PC orbital phase is global and survives a level reload. */

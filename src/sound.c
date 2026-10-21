@@ -20,6 +20,7 @@ void sound_init(void)
 void sound_flush(void)
 {
     u16 i;
+    if (game.music_track) sound_music(game.music_track);
     for (i = 0; i < 8; i++) {
         u8 id = game.sound_queue[i];
         if (!id) continue;

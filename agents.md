@@ -285,6 +285,13 @@ Every intentional difference from OpenTyrian, one line each:
   Both original GALAGA stages have no rear-port pickups. The second ship gets
   12 reserved VRAM tiles and draw priority alongside the player. Purple balls
   now follow the original per-power collection thresholds in story mode.
+- Bonus navigation — portal pickups retain the original destination override,
+  Zanac song and 150-tick notice; further portals stay on screen once a bonus
+  is selected, and death in either original bonus-level flag advances instead
+  of restoring equipment/cash — same portable section flow — the original
+  Secret Level notice uses the existing bottom HUD message instead of the
+  flashing top-of-playfield text. Script ]t now observes the completed level's
+  timer state. Bonus flags occupy existing LevelDef alignment padding.
 - Difficulty — six original story choices are directly visible on the pad menu
   instead of hiding the last three behind keyboard codes; enemy armor/value
   multipliers and score-based increases follow OpenTyrian, precomputed with
@@ -384,7 +391,7 @@ Fill and keep current.
   - `enemy_shots` 1,440, `explosions` 1,024, `gfx_slot` 848 and `big_slot` 1,234 (one byte per converted piece/frame), shot collision lists ~300.
   - total .bss depends on the episode: episode 1 34,372 bytes; episode 2
     34,980; episode 3 34,364; episode 4 30,124 (historical separate builds).
-    Unified cartridge with sidekicks: .bss 45,684 bytes + .data 90; active table pointers
+    Unified cartridge with sidekicks: .bss 45,688 bytes + .data 90; active table pointers
     189 bytes, two campaign-state bytes, dynamic sprite-slot count 2 bytes,
     PAL sprite velocity scale 2 bytes; HUD text uses a 32-bit tick deadline.
     `Player`: 20 pairs of 16-bit history coordinates, two 20-byte companion
@@ -395,9 +402,9 @@ Fill and keep current.
     bytes; rendered scroll: 4 bytes; Astral flag: 1 byte; Plane B mirror:
     4,096 bytes; star rotation: 2 bytes.
     SGDK DMA heap allocations: 9,476 bytes including block headers (8 KB
-    copy buffer and 80 x 16-byte queue); measured heap free: 7,724 bytes,
+    copy buffer and 80 x 16-byte queue); measured heap free: 7,720 bytes,
     with the 0xA00 stack reserve separate. BSS + data + allocated heap +
-    reserved stack: 57,810 of 65,536 bytes.
+    reserved stack: 57,814 of 65,536 bytes.
     Filter simulation: 9 bytes; CRAM output: 128 bytes + 2-byte last-color key.
     Special runtime: 38 bytes (21 combo positions and queued execution included); special HUD cache: 2 bytes; replay special ID: 1 byte.
     Sidekick HUD state cache: 4 bytes; pause message pointer: 4 bytes;
@@ -411,7 +418,7 @@ Fill and keep current.
   - Story presentation adds a 4-byte picture pointer, one scene-skip latch and
     two benchmark bytes (8 bytes including alignment); no framebuffer or heap
     allocation. Immediate map upload uses one 80-byte stack row; picture fades
-    use 128 temporary bytes. Heap free is now 7,724 bytes, stack reserve separate.
+    use 128 temporary bytes. Heap free is now 7,720 bytes, stack reserve separate.
   - Datacube cache: 2 x 180 tile IDs = 720 bytes; script cube IDs: 4 bytes;
     pre-command checkpoint cube count: 2 bytes; reader benchmark flag: 1 byte.
     Total BSS growth is 732 bytes including alignment. Cube text is never copied
@@ -431,6 +438,9 @@ Fill and keep current.
     grows from 10 to 18 bytes, plus renderer/debug metadata and alignment.
     Purple-ball progress fills existing Player padding; the checkpoint stays
     204 bytes. No new heap allocations or large stack records.
+    Bonus navigation adds four BSS bytes: section, display countdown, current
+    requested song, and one replay injection byte. The message uses existing
+    HUD state; LevelDef flags fit its previous padding.
 - VRAM map: (region — tiles/bytes)
   - tiles 0-15 SGDK system; 16.. background slot pool, sized per level by
     `BG_POOL_NEED` (684 for 1.9: worst 30-row window, both layers); then free
@@ -453,9 +463,9 @@ Fill and keep current.
     text pages at 208..567, face 568..630. Nine lines use 45 hardware sprites,
     five / 160 pixels per scanline; no gameplay objects share the screen.
 - Entity caps: enemies 100, enemy shots 60, player shots 64, explosions 64, cosmetic superpixels 64.
-- ROM: unified cartridge (2026-10-21): fixed .text 3,637,248 bytes,
+- ROM: unified cartridge (2026-10-21): fixed .text 3,637,760 bytes,
   initial .data 90; far graphics and extra option/weapon frames bring the used physical ROM
-  end to 7,871,424 bytes, padded to 8 MB (93%). Password codec/UI add ~5.9 KB of code/tables. The fixed region still has 32,678 bytes
+  end to 7,871,424 bytes, padded to 8 MB (93%). Password codec/UI add ~5.9 KB of code/tables. The fixed region still has 32,166 bytes
   of headroom. Packing the 144 star/spark frames into 25 unique 8x8 tiles
   in seven ordinary cache slots saves 70,144 ROM bytes and 136 BSS bytes,
   including the new cache-full flag; every converted pixel is preserved. Datacubes add 133,684 bytes of fixed packed line maps/references
@@ -489,6 +499,10 @@ Fill and keep current.
   (bottom 4 px of tile A + top 4 px of tile B) for each vertical pair that
   occurs (max 515 pairs per layer). Maps stay in tile units.
 - Worst frame (cycles): (level — cycles — date)
+  - Bonus portal opening, 600 ticks with boot.txt (2026-10-21): 1,031
+    game-loop frames, avg busy 73,936 / max 126,474 cycles, no frames without
+    idle; tick-loop peak 144,906 cycles, stack 1,284 bytes, DMA peak 2,308.
+    Selected smoke run only; no worst-case 60 Hz guarantee.
   - Linked GALAGA, 600 ticks with boot.txt (2026-10-21): ALE 1.18,
     1,074 game-loop frames, avg busy 99,048 / max 127,856 cycles, 35 frames
     without idle, tick-loop peak 245,490, stack 1,178 bytes, DMA peak 1,308.
@@ -637,6 +651,10 @@ Fill and keep current.
   independently on host, NTSC and PAL (`make parity-modes`). Unit tests verify
   exact equipment, all-life respawn timing, reward thresholds, 21-combo access,
   backup restoration, turret short-circuit RNG and persistent event drops.
+  Four portal replays inject original enemy 577 and run 600 ticks in both
+  regions (`make parity-bonus`). Unit tests verify first-pickup ownership,
+  ignored later portals, 150-tick countdown, bonus death progression, ordinary
+  death retry, destination override and timer-branch state.
   Linked-ship tests cover pickup cash, repeated pickup state, cardinal turret
   directions, full-charge volley, armor sharing, enemy-shot collision, respawn
   removal and purple-ball thresholds. Mode hashes include dormant second-ship

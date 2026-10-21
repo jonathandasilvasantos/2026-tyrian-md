@@ -6,6 +6,7 @@
 #include "difficulty.h"
 #include "mode.h"
 #include "gen_data/script.h"
+#include "gen_data/level.h"
 
 #define DEFAULT_SONG_BUY 2   /* musmast.h: play_song(DEFAULT_SONG_BUY) */
 
@@ -164,7 +165,9 @@ void script_goto(uint8_t section)
 void script_level_done(uint8_t next_section, uint8_t died)
 {
     script.died = died;
-    if (!died) {
+    script.timer_expired = game.level_timer && !game.level_timer_countdown;
+    if (!died || levels[game.level].flags) {
+        if (game.bonus_section) next_section = game.bonus_section;
         game_level_complete();
         mode_leave_level();
         go_section(next_section);
