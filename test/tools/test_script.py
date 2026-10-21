@@ -12,7 +12,7 @@ pytestmark = pytest.mark.skipif(not os.path.exists(data_path("tyrian1.lvl")), re
 
 @pytest.mark.parametrize("episode,first", [(1, 8), (2, 0), (3, 2), (4, 3)])
 def test_episode_levels_and_destinations(episode, first):
-    ops, sections, shops, names = script.compile_script(episode)
+    ops, sections, shops, names, pages = script.compile_script(episode)
     assert script.first_level(episode) == first
     pc = 0
     seen = []
@@ -40,7 +40,12 @@ def test_episode_levels_and_destinations(episode, first):
                     script.OP_JUMP_IF_TIMER, script.OP_JUMP_IF_SHIP13):
             assert 0 < ops[pc + 1] < len(sections)
             size = 2
-        elif op == script.OP_SHOP_SONG:
+        elif op == script.OP_TEXT:
+            assert ops[pc + 1] < len(pages)
+            size = 2
+        elif op in (script.OP_PICTURE, script.OP_FADE):
+            size = 2
+        elif op in (script.OP_SHOP_SONG, script.OP_MUSIC):
             assert 1 <= ops[pc + 1] <= 41
             size = 2
         pc += size

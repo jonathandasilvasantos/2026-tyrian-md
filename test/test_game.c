@@ -126,12 +126,20 @@ static void test_script_walk(void)
     int steps = 0, levels_played = 0;
     script_start();
     for (; steps < 200; steps++) {
+        uint32_t frame = game.frame, seed = rng_state;
         FlowStep st = script_run();
+        /* Presentation can change script.pc, never the running simulation. */
+        CHECK(game.frame == frame && rng_state == seed);
+        if (st.kind == FLOW_TEXT) CHECK(st.name < 32);
+        if (st.kind == FLOW_MUSIC) CHECK(st.name >= 1 && st.name <= 41);
+        if (st.kind == FLOW_PICTURE)
+            CHECK(st.name == 0 || st.name == 5 || st.name == 7 || st.name == 8 ||
+                  st.name == 9 || st.name == 13 || st.name == 255);
         if (st.kind == FLOW_END) break;
         if (st.kind == FLOW_SHOP) {
             CHECK(st.shop < SHOP_COUNT);
             script_goto(script.choices ? script.choice_section[0] : 0);
-        } else {
+        } else if (st.kind == FLOW_LEVEL) {
             CHECK(st.level < LEVEL_COUNT);
             levels_played++;
             script_level_done(st.next_section, 0);

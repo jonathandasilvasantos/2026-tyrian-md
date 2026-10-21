@@ -21,6 +21,7 @@
  * cartridge space or mapped read past physical ROM, a stack deeper than SGDK's 0xA00 reserve, or no
  * game_tick for B68K_HANG frames (default 600).
  * Environment: B68K_EPISODE=n selects episode n (default ROM menu default),
+ * B68K_STORY=page,picture presents converted story assets before the opening replay,
  * B68K_OPTIONS=left,right equips sidekicks for replay coverage,
  * B68K_PAL=1 selects the 50 Hz/312-line timing model,
  * B68K_LEVEL=n plays level n directly (ROM debug_level),
@@ -62,7 +63,8 @@ static uint32_t hash_on_addr, level_addr, episode_addr; static int force_level, 
 static unsigned force_options, option_left, option_right;
 static uint32_t loadout_addr, left_option_addr, right_option_addr, bombs_addr;
 static unsigned force_bombs, force_checkpoint, force_special;
-static uint32_t special_addr;
+static uint32_t special_addr, story_page_addr, story_picture_addr;
+static unsigned force_story, story_page, story_picture;
 static uint32_t checkpoint_addr;
 static uint32_t tick_addr, hash_addr, crash_lo, crash_hi, die_addr, hold_level_addr, main_addr;
 static uint64_t ticks, want; static unsigned last_tick_frame;
@@ -126,6 +128,10 @@ void bench_instr_hook(unsigned int pc) {
         it_start = c; idle_at_start = idle_total; it_ticked = 0;
     }
     if (pc == main_addr) {
+        if (force_story && story_page_addr && story_picture_addr) {
+            wr8(story_page_addr, story_page + 1);
+            wr8(story_picture_addr, story_picture);
+        }
         if (special_addr) wr8(special_addr, force_special);
         if (bombs_addr) wr8(bombs_addr, force_bombs);
         if (checkpoint_addr) wr8(checkpoint_addr, force_checkpoint);
@@ -259,6 +265,8 @@ static void load_syms(const char *path) {
         if (!strcmp(name, "hash_enabled")) hash_on_addr = addr;
         if (!strcmp(name, "debug_level")) level_addr = addr;
         if (!strcmp(name, "debug_episode")) episode_addr = addr;
+        if (!strcmp(name, "debug_story_page")) story_page_addr = addr;
+        if (!strcmp(name, "debug_story_picture")) story_picture_addr = addr;
         if (!strcmp(name, "debug_special")) special_addr = addr;
         if (!strcmp(name, "debug_checkpoint")) checkpoint_addr = addr;
         if (!strcmp(name, "debug_bombs")) bombs_addr = addr;
@@ -331,6 +339,14 @@ int main(int argc, char **argv) {
     }
     if (getenv("B68K_FUNC")) for (i = 0; i < nsyms - 1; i++) if (!strcmp(syms[i].name, getenv("B68K_FUNC"))) {
         hf_lo = syms[i].addr; hf_hi = syms[i + 1].addr; hf_cyc = calloc((hf_hi - hf_lo) / 2 + 1, 8); }
+    if (getenv("B68K_STORY")) {
+        if (sscanf(getenv("B68K_STORY"), "%u,%u", &story_page, &story_picture) != 2 ||
+            story_page >= 32 || (story_picture != 0 && story_picture != 5 && story_picture != 7 &&
+            story_picture != 8 && story_picture != 9 && story_picture != 13)) {
+            fprintf(stderr, "B68K_STORY requires page 0..31,picture ID\n"); return 2;
+        }
+        force_story = 1;
+    }
     if (getenv("B68K_SPECIAL")) {
         force_special = atoi(getenv("B68K_SPECIAL"));
         if (force_special > 46) return 2;

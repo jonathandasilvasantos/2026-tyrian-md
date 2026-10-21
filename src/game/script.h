@@ -5,7 +5,7 @@
 
 #include "types.h"
 
-enum { FLOW_LEVEL, FLOW_SHOP, FLOW_END };
+enum { FLOW_LEVEL, FLOW_SHOP, FLOW_END, FLOW_TEXT, FLOW_PICTURE, FLOW_MUSIC, FLOW_FADE, FLOW_SCENE_RESET };
 
 typedef struct {
     uint8_t kind;

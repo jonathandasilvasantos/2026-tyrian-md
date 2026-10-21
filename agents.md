@@ -235,11 +235,21 @@ Every intentional difference from OpenTyrian, one line each:
   text and enemy filters not ported yet; explosion cap 64
   (PC 200); event 12's self-modification tracked for 16 events.
 - Flow — the episode script is compiled to bytecode (tools/tyrdata/
-  script.py); dropped for now: text/picture/music screens (]W ]P ]M ...),
-  data cubes, galaga/extra modes (level 1.18 "ALE" never ends without
+  script.py); original story text/picture/music commands now yield to the
+  presentation frontend; dropped for now: data cubes, ending animation,
+  galaga/extra modes (level 1.18 "ALE" never ends without
   galaga mode), two-player branches. Death
   replays the level with the items it started with (the PC reloads its
   level-start save). Shop passwords preserve progress across power-off.
+- Story presentation — all 31 text pages retain their original strings, TINY_FONT
+  proportional spacing and 10-pixel line positions over the six original story
+  pictures, centered vertically in 224 lines; palette lines 0/1/3 quantize images,
+  PAL2 supplies white text and black shadows — VDP tilemaps replace the PC
+  framebuffer — text appears fully formed instead of the character glow wave,
+  and ]U's picture pan currently cuts/fades to the final image. Warning bars round
+  six pixels to eight and share one flashing red; siren spacing follows the PC
+  timer. C skips subsequent text until ]n; B/A/START advances. Story commands do
+  not advance simulation or RNG. Shops retain the selected picture beneath menus.
 - Difficulty — six original story choices are directly visible on the pad menu
   instead of hiding the last three behind keyboard codes; enemy armor/value
   multipliers and score-based increases follow OpenTyrian, precomputed with
@@ -340,7 +350,7 @@ Fill and keep current.
     sprite piece of the level), shot collision lists ~300.
   - total .bss depends on the episode: episode 1 34,372 bytes; episode 2
     34,980; episode 3 34,364; episode 4 30,124 (historical separate builds).
-    Unified cartridge with sidekicks: .bss 44,108 bytes + .data 90; active table pointers
+    Unified cartridge with sidekicks: .bss 44,116 bytes + .data 90; active table pointers
     185 bytes, two campaign-state bytes, dynamic sprite-slot count 2 bytes,
     PAL sprite velocity scale 2 bytes; HUD text uses a 32-bit tick deadline.
     `Player`: 20 pairs of 16-bit history coordinates, two 20-byte companion
@@ -351,9 +361,9 @@ Fill and keep current.
     bytes; rendered scroll: 4 bytes; Astral flag: 1 byte; Plane B mirror:
     4,096 bytes; star rotation: 2 bytes.
     SGDK DMA heap allocations: 9,476 bytes including block headers (8 KB
-    copy buffer and 80 x 16-byte queue); measured heap free: 9,300 bytes,
+    copy buffer and 80 x 16-byte queue); measured heap free: 9,292 bytes,
     with the 0xA00 stack reserve separate. BSS + data + allocated heap +
-    reserved stack: 56,234 of 65,536 bytes.
+    reserved stack: 56,242 of 65,536 bytes.
     Filter simulation: 9 bytes; CRAM output: 128 bytes + 2-byte last-color key.
     Special runtime: 20 bytes (three combo positions and queued execution included); special HUD cache: 2 bytes; replay special ID: 1 byte.
     Sidekick HUD state cache: 4 bytes; pause message pointer: 4 bytes;
@@ -364,6 +374,10 @@ Fill and keep current.
     bytes. Normal boot previously used 1,492 stack bytes, below the 0xA00 reserve (2026-10-21).
   - `sprites.c` piece cache — up to 88 slots x 4 bytes (48 for episode 2);
     `debug_hold_level` — 1 byte for headless replay flow control.
+  - Story presentation adds a 4-byte picture pointer, one scene-skip latch and
+    two benchmark bytes (8 bytes including alignment); no framebuffer or heap
+    allocation. Immediate map upload uses one 80-byte stack row; picture fades
+    use 128 temporary bytes. Heap free is now 9,292 bytes, stack reserve separate.
 - VRAM map: (region — tiles/bytes)
   - tiles 0-15 SGDK system; 16.. background slot pool, sized per level by
     `BG_POOL_NEED` (684 for 1.9: worst 30-row window, both layers); then free
@@ -374,10 +388,16 @@ Fill and keep current.
     and the small-piece cache shrinks to fit. main.c has a
     `_Static_assert` on the total (1440) and the tilemaps at 0xC000 (SGDK
     defaults: plane B 0xC000, window 0xD000, plane A 0xE000, sprites 0xF800).
+  - Story screens replace gameplay VRAM: picture at tile 16, text immediately
+    after it, at most 1,033 + 407 + one warning-bar tile = 1,441 tiles
+    (end 1,457 < 1,536). They may reuse the HUD font region; hud_init reloads it
+    before play. Shops keep 192 menu-font tiles and load the image at 208,
+    ending at most at 1,241. Conversion asserts both limits. DMA occurs during
+    loading with display off; no extra gameplay streaming.
 - Entity caps: enemies 100, enemy shots 60, player shots 64, explosions 64.
-- ROM: unified cartridge (2026-10-21): fixed .text 3,388,160 bytes,
+- ROM: unified cartridge (2026-10-21): fixed .text 3,475,968 bytes,
   initial .data 90; far graphics and extra option/weapon frames bring the used physical ROM
-  end to 7,318,912 bytes, padded to 8 MB (87%). Password codec/UI add ~5.9 KB of code/tables. The fixed region still has 281,766 bytes
+  end to 7,647,488 bytes, padded to 8 MB (87%). Password codec/UI add ~5.9 KB of code/tables. The fixed region still has 193,958 bytes
   of headroom. The shipped SGDK math source is
   recompiled with function sections (read-only include); garbage collection
   removes ~393 KB of unused log/sqrt tables and other unused math routines.
@@ -499,6 +519,12 @@ Fill and keep current.
   68000 encode/load the opening state of each episode, then must match the
   independent host and existing goldens in both regions. Host checkpoint tests
   cover every symbol position for transcription rejection without state changes.
+  Three selected story presentations (maximum tiles, warning/siren, PCX with
+  red-layout text) precede unchanged opening goldens on the 68000 in both
+  regions (`make parity-story`); the maximum-tile 600-tick case uses 1,288
+  stack bytes, 9,292 free heap bytes and peaks at 2,308 gameplay DMA bytes.
+  Python checks every original page, proportional bounds and byte-identical
+  conversion. Text glow and the picture pan remain documented adaptations.
   Converter unit tests (Python) join tier 0 from stage 2. The runner sets
   `debug_hold_level` at the first tick: death/end does not restart or leave
   the level during a fixed-length replay, matching the host. The default
@@ -536,7 +562,7 @@ Write tests for behavior, not implementation; no duplicate tests.
 5. **Enemies + events** (done for one level: `src/game/enemy.c`,
    `level.c`; HUD values exist but are not drawn): level event interpreter, enemy movement/AI,
    collisions, explosions, items, score.
-6. **HUD + flow** (four episodes, sidekick shops and password saves; text screens remain: `src/game/script.c`, `shop.c`, `src/menu.c`, `src/hud.c`):
+6. **HUD + flow** (four episodes, story text/pictures, sidekick shops and password saves: `src/game/script.c`, `shop.c`, `src/menu.c`, `src/hud.c`):
    window-plane HUD, level end, shop/upgrade screen, episode progression,
    saves.
 7. **Audio** (done: `tools/lds_dump`, `tools/tyrdata/music.py`,

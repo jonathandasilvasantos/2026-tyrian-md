@@ -1,6 +1,5 @@
 /* script.c — episode script interpreter: runs a section's commands until
- * one needs the player (a level or a shop).  Text and picture screens are
- * not compiled in yet (agents.md §8). */
+ * one needs the player or the presentation frontend. */
 #include "script.h"
 #include "game.h"
 #include "player.h"
@@ -39,7 +38,8 @@ FlowStep script_run(void)
             skip = 0;
             switch (op[0]) {
             case OP_JUMP: case OP_JUMP_IF_EASY: case OP_JUMP_IF_DIED: case OP_JUMP_IF_TIMER:
-            case OP_JUMP_IF_SHIP13: case OP_SHOP: case OP_SHOP_SONG: len = 2; break;
+            case OP_JUMP_IF_SHIP13: case OP_SHOP: case OP_SHOP_SONG:
+            case OP_TEXT: case OP_PICTURE: case OP_MUSIC: case OP_FADE: len = 2; break;
             case OP_LEVEL: len = 6; break;
             case OP_CHOOSE: len = 2 + 2 * op[1]; break;
             }
@@ -62,6 +62,16 @@ FlowStep script_run(void)
             st.flags = op[4];
             st.name = op[5];
             /* pc stays on the command: a death replays it */
+            return st;
+        case OP_TEXT: case OP_PICTURE: case OP_MUSIC: case OP_FADE:
+            st.kind = op[0] == OP_TEXT ? FLOW_TEXT : op[0] == OP_PICTURE ? FLOW_PICTURE :
+                      op[0] == OP_MUSIC ? FLOW_MUSIC : FLOW_FADE;
+            st.name = op[1];
+            script.pc += 2;
+            return st;
+        case OP_SCENE_RESET:
+            st.kind = FLOW_SCENE_RESET;
+            script.pc++;
             return st;
         case OP_SHOP:
             st.kind = FLOW_SHOP;

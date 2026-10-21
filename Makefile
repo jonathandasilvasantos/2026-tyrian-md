@@ -28,7 +28,7 @@ BENCH_TICKS ?= 600
 REPLAY      ?= test/replays/boot.txt
 MUSASHI_REV := 313ebf1bd9f4d0d93341eb5ce21fd8a119e9dbdd
 
-.PHONY: all music setup-sgdk gen rom rom-demo host unit-test py-test test bench-68k parity parity-episodes parity-sidekicks parity-checkpoint parity-specials parity-combos parity-pal clean
+.PHONY: all music setup-sgdk gen rom rom-demo host unit-test py-test test bench-68k parity parity-episodes parity-sidekicks parity-checkpoint parity-specials parity-combos parity-story parity-pal clean
 
 all: rom
 
@@ -185,15 +185,22 @@ parity-combos: out/bench68k out/rom.syms out/tyrian_host
 parity-specials: out/bench68k out/rom.syms out/tyrian_host
 	@python3 tools/check_replays.py test/replays/specials.hashes test/replays/sidekicks.txt
 
+# Selected presentation cases: maximum tile usage, warning siren, PCX/red text.
+# Their following opening replay must preserve the existing simulation golden.
+parity-story: out/bench68k out/rom.syms out/tyrian_host
+	@B68K_STORY=3,7 $(MAKE) --no-print-directory parity EPISODE=1
+	@B68K_STORY=0,5 $(MAKE) --no-print-directory parity EPISODE=1
+	@B68K_STORY=5,0 $(MAKE) --no-print-directory parity EPISODE=4
+
 parity-checkpoint:
 	@B68K_CHECKPOINT=1 $(MAKE) --no-print-directory parity-episodes
 
 parity-pal: out/bench68k out/rom.syms out/tyrian_host
 	@echo "   PAL replay checks"
-	@B68K_PAL=1 $(MAKE) --no-print-directory parity-episodes parity-sidekicks parity-checkpoint parity-specials parity-combos
+	@B68K_PAL=1 $(MAKE) --no-print-directory parity-episodes parity-sidekicks parity-checkpoint parity-specials parity-combos parity-story
 
 test: rom
-	@$(MAKE) --no-print-directory py-test out/test_game out/test_password out/test_filter out/test_stars parity-episodes parity-sidekicks parity-checkpoint parity-specials parity-combos parity-pal
+	@$(MAKE) --no-print-directory py-test out/test_game out/test_password out/test_filter out/test_stars parity-episodes parity-sidekicks parity-checkpoint parity-specials parity-combos parity-story parity-pal
 	@./out/test_game
 	@./out/test_password
 	@./out/test_filter

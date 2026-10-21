@@ -1,6 +1,7 @@
 /* main.c — Genesis entry point and game flow (hardware side of agents.md §5):
  * episode script -> shops and levels; a level runs until it ends or the
  * player dies (then it is replayed with the items it started with). */
+#include "story.h"
 #include <genesis.h>
 #include "game/game.h"
 #include "game/episode.h"
@@ -40,6 +41,7 @@ volatile u8 debug_episode;
 volatile u8 debug_loadout, debug_left_option, debug_right_option, debug_bombs, debug_special;
 /* Headless runner compares a fixed number of ticks, including after death. */
 volatile u8 debug_hold_level, debug_checkpoint;
+volatile u8 debug_story_page, debug_story_picture;
 
 /* game_tick: one simulation step.  Kept as a real function (noinline) so
  * tools/bench68k can count ticks and feed replay pads by its address. */
@@ -167,14 +169,35 @@ int main(bool hard)
         }
     }
 
+    if (debug_story_page) {
+        story_picture(debug_story_picture);
+        story_text(debug_story_page - 1);
+        story_reset();
+    }
     while (TRUE) {
         FlowStep st = script_run();
         switch (st.kind) {
+        case FLOW_TEXT:
+            story_text(st.name);
+            break;
+        case FLOW_PICTURE:
+            story_picture(st.name);
+            break;
+        case FLOW_MUSIC:
+            sound_music(st.name);
+            break;
+        case FLOW_FADE:
+            story_fade(st.name);
+            break;
+        case FLOW_SCENE_RESET:
+            story_resume();
+            break;
         case FLOW_SHOP:
             sound_music(script.shop_song);
             script_goto(shop_screen(st.shop));
             break;
         case FLOW_LEVEL: {
+            story_reset();
             static Player saved;
             saved = players[0];   /* death replays the level with these items */
             u8 died = play_level(&st);
@@ -188,6 +211,7 @@ int main(bool hard)
             break;
         }
         case FLOW_END:
+            story_reset();
             message_screen("EPISODE COMPLETE", "Tyrian MD by Jonathan Santos");
             game_next_episode();
             sound_music(27);

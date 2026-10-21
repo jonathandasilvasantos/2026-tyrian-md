@@ -16,12 +16,14 @@
 #include "gen_data/level.h"
 #include "sound.h"
 #include "hud.h"
+#include "story.h"
 
 #define FONT_TILE TILE_USER_INDEX
 static u16 held;
 
-void menu_begin(void)
+static u16 menu_begin_at(u16 picture_base)
 {
+    u16 next;
     episode_graphics_select(LEVEL_EPISODE);
     VDP_setEnable(FALSE);
     VDP_setWindowHPos(FALSE, 0);
@@ -37,8 +39,20 @@ void menu_begin(void)
     PAL_setColors(32, spr_palettes, 16, DMA);
     PAL_setColor(0, 0);
     VDP_loadTileData(menu_font_tiles, FONT_TILE, 96 * 2, DMA);
-    VDP_setEnable(TRUE);
+    next = story_background(picture_base);
     held = 0xFFFF;   /* ignore buttons held from before */
+    return next;
+}
+
+void menu_begin(void)
+{
+    menu_begin_at(FONT_TILE + 192);
+    VDP_setEnable(TRUE);
+}
+
+u16 menu_story_begin(void)
+{
+    return menu_begin_at(FONT_TILE);
 }
 
 void menu_text(u16 col, u16 row, const char *s, u16 width)

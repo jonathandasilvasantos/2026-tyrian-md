@@ -201,7 +201,7 @@ def gen_levels(out, ep, nums):
 
 def gen_script(out, ep):
     """Episode script bytecode (tools/tyrdata/script.py) as portable C."""
-    ops, sections, shops, names = script_mod.compile_script(ep)
+    ops, sections, shops, names, _ = script_mod.compile_script(ep)
     planets = script_mod.planet_names()
     h = (emit.HEADER + "#ifndef GEN_SCRIPT_H\n#define GEN_SCRIPT_H\n#include \"game/types.h\"\n"
          "/* opcodes: see tools/tyrdata/script.py */\n"
@@ -931,6 +931,8 @@ def main():
     gen_motion(out)
     gen_fonts(out)
     gen_title(out)
+    from tyrdata.story import generate as gen_story
+    gen_story(out, tiles_column_major)
     res = gen_sounds(out, "res")
     # music: VGMs from tools/music_vgm.py (make music) copied to res/music
     songs = sorted(f for f in os.listdir(os.path.join("res", "music")) if f.endswith(".vgm")) \

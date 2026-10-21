@@ -1,9 +1,8 @@
 """Episode scripts (levels?.dat) compiled to a small bytecode for the ROM
 (docs/data_formats.md §2, tyrian2.c:JE_loadMap).
 
-Each '*' line opens a section (1-based).  Only commands with gameplay
-effect are kept; text/picture/music screens are dropped for now
-(agents.md §8).
+Each '*' line opens a section (1-based). Presentation commands yield to
+the hardware frontend without advancing the portable simulation.
 """
 import struct
 
@@ -14,6 +13,8 @@ from .level import load_script
 OP_END, OP_JUMP, OP_LEVEL, OP_SHOP, OP_CHOOSE = 0, 1, 2, 3, 4
 OP_SKIP_IF_HARD, OP_JUMP_IF_EASY, OP_SAVE, OP_JUMP_IF_DIED, OP_JUMP_IF_TIMER = 5, 6, 7, 8, 9
 OP_JUMP_IF_SHIP13, OP_END_EPISODE, OP_SHOP_SONG = 10, 11, 12
+
+OP_TEXT, OP_PICTURE, OP_MUSIC, OP_FADE, OP_SCENE_RESET = 13, 14, 15, 16, 17
 
 SHOP_ROWS = ("Ship", "WeapF", "WeapR", "Power", "Engine", "Opt1", "Opt2", "Armor", "Shield")
 
@@ -58,9 +59,9 @@ def planet_names():
 
 
 def compile_script(episode):
-    """-> (ops bytes, section offsets [1..N], shops [9 lists], names [str])"""
+    """-> (ops bytes, section offsets [1..N], shops [9 lists], names [str], pages [dict])"""
     lines = load_script(episode)
-    ops, sections, shops, names = bytearray(), [0], [], []
+    ops, sections, shops, names, pages = bytearray(), [0], [], [], []
     i = 0
     while i < len(lines):
         s = lines[i]
@@ -71,7 +72,30 @@ def compile_script(episode):
         if not s.startswith("]") or len(s) < 2:
             continue
         c = s[1]
-        if c == "J":
+        if c == "W":
+            text = []
+            while i < len(lines) and not lines[i].startswith("#"):
+                text.append(lines[i][:60])
+                i += 1
+            if i == len(lines):
+                raise ValueError("unterminated episode text page")
+            i += 1
+            timing = atoi(s[4:])
+            pages.append(dict(lines=text[:10], warning=s[2:3] == "y",
+                              red=timing // 10, delay=timing % 10))
+            ops += bytes([OP_TEXT, len(pages) - 1])
+        elif c in "PUVR":
+            pic = atoi(s[3:])
+            # >900 clears the framebuffer and selects a palette; there is
+            # no remaining indexed framebuffer to recolor on the Genesis.
+            ops += bytes([OP_PICTURE, pic if pic <= 255 else 255])
+        elif c == "M":
+            ops += bytes([OP_MUSIC, atoi(s[3:])])
+        elif c in "BCF":
+            ops += bytes([OP_FADE, "BCF".index(c)])
+        elif c == "n":
+            ops += bytes([OP_SCENE_RESET])
+        elif c == "J":
             ops += bytes([OP_JUMP, atoi(s[3:])])
         elif c == "L":
             nxt = atoi(s[9:])
@@ -108,9 +132,9 @@ def compile_script(episode):
             ops += bytes([OP_SHOP_SONG, atoi(s[3:])])
         elif c == "Q":
             ops += bytes([OP_END_EPISODE])
-        # ]2 (two-player jump) never taken; W P M U V R C B F A g x e ? ! + @ S n: screens/extras
+        # ]2 (two-player jump) never taken; A g x e ? ! + @ S: animation/extras
     ops += bytes([OP_END])
-    return bytes(ops), sections, shops, names
+    return bytes(ops), sections, shops, names, pages
 
 
 def first_level(episode):
