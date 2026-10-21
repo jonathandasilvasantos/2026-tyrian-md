@@ -28,7 +28,7 @@ BENCH_TICKS ?= 600
 REPLAY      ?= test/replays/boot.txt
 MUSASHI_REV := 313ebf1bd9f4d0d93341eb5ce21fd8a119e9dbdd
 
-.PHONY: all music setup-sgdk gen rom rom-demo host unit-test py-test test bench-68k parity parity-episodes parity-sidekicks parity-checkpoint parity-specials parity-combos parity-story parity-cubes parity-pal clean
+.PHONY: all music setup-sgdk gen rom rom-demo host unit-test py-test test bench-68k parity parity-episodes parity-sidekicks parity-checkpoint parity-specials parity-combos parity-story parity-cubes parity-modes parity-pal clean
 
 all: rom
 
@@ -105,6 +105,10 @@ out/test_stars: test/test_stars.c src/game/stars.c src/game/stars.h src/game/rng
 	@mkdir -p out
 	$(CC) $(HOST_CFLAGS) test/test_stars.c src/game/stars.c src/game/rng.c src/gen_data/motion.c -o $@
 
+out/test_modes: test/test_modes.c $(GAME_SRCS) $(GAME_HDRS) Makefile
+	@mkdir -p out
+	$(CC) $(HOST_CFLAGS) test/test_modes.c $(GAME_SRCS) -o $@
+
 out/test_particles: test/test_particles.c src/game/particles.c src/game/particles.h src/game/rng.c src/gen_data/motion.c Makefile
 	@mkdir -p out
 	$(CC) $(HOST_CFLAGS) test/test_particles.c src/game/particles.c src/game/rng.c src/gen_data/motion.c -o $@
@@ -118,12 +122,13 @@ out/test_password: test/test_password.c $(GAME_SRCS) $(GAME_HDRS) Makefile
 	$(CC) $(HOST_CFLAGS) test/test_password.c $(GAME_SRCS) -o $@
 
 unit-test: gen
-	@$(MAKE) --no-print-directory out/test_game out/test_password out/test_filter out/test_stars out/test_particles
+	@$(MAKE) --no-print-directory out/test_game out/test_password out/test_filter out/test_stars out/test_particles out/test_modes
 	@./out/test_game
 	@./out/test_password
 	@./out/test_filter
 	@./out/test_stars
 	@./out/test_particles
+	@./out/test_modes
 
 # ── 68000 runner (Musashi) ───────────────────────────────────────────────────
 out/musashi/m68kops.c:
@@ -200,6 +205,9 @@ parity-story: out/bench68k out/rom.syms out/tyrian_host
 parity-cubes: out/bench68k out/rom.syms out/tyrian_host
 	@B68K_CUBES=1 $(MAKE) --no-print-directory parity-episodes
 
+parity-modes: out/bench68k out/rom.syms out/tyrian_host
+	@python3 tools/check_modes.py test/replays/modes.hashes test/replays/sidekicks.txt
+
 parity-checkpoint:
 	@B68K_CHECKPOINT=1 $(MAKE) --no-print-directory parity-episodes
 
@@ -208,12 +216,13 @@ parity-pal: out/bench68k out/rom.syms out/tyrian_host
 	@B68K_PAL=1 $(MAKE) --no-print-directory parity-episodes parity-sidekicks parity-checkpoint parity-specials parity-combos parity-story parity-cubes
 
 test: rom
-	@$(MAKE) --no-print-directory py-test out/test_game out/test_password out/test_filter out/test_stars out/test_particles parity-episodes parity-sidekicks parity-checkpoint parity-specials parity-combos parity-story parity-cubes parity-pal
+	@$(MAKE) --no-print-directory py-test out/test_game out/test_password out/test_filter out/test_stars out/test_particles out/test_modes parity-episodes parity-sidekicks parity-checkpoint parity-specials parity-combos parity-story parity-cubes parity-modes parity-pal
 	@./out/test_game
 	@./out/test_password
 	@./out/test_filter
 	@./out/test_stars
 	@./out/test_particles
+	@./out/test_modes
 
 clean:
 	@rm -rf out

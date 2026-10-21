@@ -5,6 +5,7 @@
 #include "filter.h"
 #include "stars.h"
 #include "particles.h"
+#include "mode.h"
 #include "shots.h"
 #include "enemy.h"
 #include "level.h"
@@ -31,6 +32,7 @@ void game_start_level(uint8_t lv)
     particles_reset();
     enemies_init();
     player_start_level();
+    mode_level_start();
     shots_init();
     game.shield_wait = 1;
     game.shield_t = shields[players[0].shield_item].tpwr * 20;
@@ -57,7 +59,8 @@ void game_step(uint16_t pad)
 
     if (!game.end_level) {
         /* HUD section: shield recharge from the generator, power bar */
-        if (p->is_alive && p->shield < p->shield_max && game.power > game.shield_t) {
+        mode_tick();
+        if (!game_mode.galaga && p->is_alive && p->shield < p->shield_max && game.power > game.shield_t) {
             if (--game.shield_wait == 0) {
                 game.shield_wait = 15;
                 game.power -= game.shield_t;
@@ -200,6 +203,14 @@ uint32_t game_hash(void)
             const Star *s = &starfield.star[i];
             h = mix(h, s->position | (uint32_t)s->speed << 16 | (uint32_t)s->color << 24);
         }
+    }
+    if (game_mode.arcade || game_mode.galaga || game_mode.extra) {
+        h = mix(h, 0xA0000000u | game_mode.arcade | (uint32_t)game_mode.super_tyrian << 8 |
+                   (uint32_t)game_mode.galaga << 16 | (uint32_t)game_mode.extra << 24);
+        h = mix(h, game_mode.next_life);
+        h = mix(h, game_mode.shot_frequency | (uint32_t)game_mode.no_backup << 8);
+        if (game_mode.super_tyrian)
+            for (i = 3; i < 21; i++) h = mix(h, special_state.combo[i]);
     }
     if (particles.last || particles.live) {
         h = mix(h, 0x5F000000u | particles.last | (uint32_t)particles.live << 8);

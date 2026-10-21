@@ -18,6 +18,8 @@ OP_TEXT, OP_PICTURE, OP_MUSIC, OP_FADE, OP_SCENE_RESET = 13, 14, 15, 16, 17
 
 OP_CUBES, OP_CUBE_SET, OP_CUBE_ADD = 18, 19, 20
 
+OP_ENGAGE, OP_GALAGA, OP_EXTRA, OP_BACKUP, OP_JUMP_IF_ARCADE = 21, 22, 23, 24, 25
+
 SHOP_ROWS = ("Ship", "WeapF", "WeapR", "Power", "Engine", "Opt1", "Opt2", "Armor", "Shield")
 
 
@@ -127,8 +129,14 @@ def compile_script(episode):
             ops += bytes([OP_SKIP_IF_HARD])
         elif c == "H":
             ops += bytes([OP_JUMP_IF_EASY, atoi(s[4:])])
-        elif c in "sb":
+        elif c == "s":
             ops += bytes([OP_SAVE])
+        elif c == "b":
+            ops += bytes([OP_BACKUP])
+        elif c in "egx":
+            ops += bytes([dict(e=OP_ENGAGE, g=OP_GALAGA, x=OP_EXTRA)[c]])
+        elif c == "2":
+            ops += bytes([OP_JUMP_IF_ARCADE, atoi(s[3:])])
         elif c == "l":
             ops += bytes([OP_JUMP_IF_DIED, atoi(s[3:])])
         elif c == "t":
@@ -139,7 +147,7 @@ def compile_script(episode):
             ops += bytes([OP_SHOP_SONG, atoi(s[3:])])
         elif c == "Q":
             ops += bytes([OP_END_EPISODE])
-        # ]2 (two-player jump) never taken; A g x e @ S: animation/extras
+        # A @ S: animation / text style / currently unused commands
     ops += bytes([OP_END])
     return bytes(ops), sections, shops, names, pages
 

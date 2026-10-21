@@ -21,6 +21,7 @@
  * cartridge space or mapped read past physical ROM, a stack deeper than SGDK's 0xA00 reserve, or no
  * game_tick for B68K_HANG frames (default 600).
  * Environment: B68K_EPISODE=n selects episode n (default ROM menu default),
+ * B68K_MODE=1/2 enters ENGAGE/GALAGA at B68K_LEVEL,
  * B68K_CUBES=1 reads, scrolls and switches initial datacubes before replay,
  * B68K_STORY=page,picture presents converted story assets before the opening replay,
  * B68K_OPTIONS=left,right equips sidekicks for replay coverage,
@@ -66,7 +67,8 @@ static uint32_t loadout_addr, left_option_addr, right_option_addr, bombs_addr;
 static unsigned force_bombs, force_checkpoint, force_special;
 static uint32_t special_addr, story_page_addr, story_picture_addr;
 static unsigned force_story, story_page, story_picture, force_cubes, reader_start_frame, reader_started;
-static uint32_t cubes_debug_addr, cube_reader_addr;
+static uint32_t cubes_debug_addr, cube_reader_addr, mode_addr;
+static unsigned force_mode;
 static unsigned reader_frame_dma, reader_peak_dma;
 static uint32_t checkpoint_addr;
 static uint32_t tick_addr, hash_addr, crash_lo, crash_hi, die_addr, hold_level_addr, main_addr;
@@ -133,6 +135,7 @@ void bench_instr_hook(unsigned int pc) {
     if (pc == cube_reader_addr && force_cubes && !reader_started) { reader_start_frame = frame_no; reader_started = 1; }
     if (pc == main_addr) {
         if (cubes_debug_addr) wr8(cubes_debug_addr, force_cubes);
+        if (mode_addr) wr8(mode_addr, force_mode);
         if (force_story && story_page_addr && story_picture_addr) {
             wr8(story_page_addr, story_page + 1);
             wr8(story_picture_addr, story_picture);
@@ -272,6 +275,7 @@ static void load_syms(const char *path) {
         if (!strcmp(name, "hash_enabled")) hash_on_addr = addr;
         if (!strcmp(name, "debug_level")) level_addr = addr;
         if (!strcmp(name, "debug_episode")) episode_addr = addr;
+        if (!strcmp(name, "debug_mode")) mode_addr = addr;
         if (!strcmp(name, "debug_cubes")) cubes_debug_addr = addr;
         if (!strcmp(name, "cube_screen")) cube_reader_addr = addr;
         if (!strcmp(name, "debug_story_page")) story_page_addr = addr;
@@ -374,6 +378,12 @@ int main(int argc, char **argv) {
     }
     if (getenv("B68K_EPISODE")) force_episode = atoi(getenv("B68K_EPISODE"));
     if (getenv("B68K_LEVEL")) force_level = atoi(getenv("B68K_LEVEL"));
+    if (getenv("B68K_MODE")) {
+        force_mode = atoi(getenv("B68K_MODE"));
+        if (force_mode > 2 || (force_mode && !force_level)) {
+            fprintf(stderr, "B68K_MODE requires 1 ENGAGE / 2 GALAGA and B68K_LEVEL\n"); return 2;
+        }
+    }
     if (getenv("B68K_PROF")) sscanf(getenv("B68K_PROF"), "%u,%u", &prof_a, &prof_b);
     hang = getenv("B68K_HANG") ? (unsigned)atoi(getenv("B68K_HANG")) : 600;
 

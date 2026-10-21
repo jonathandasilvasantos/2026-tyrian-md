@@ -171,7 +171,10 @@ def write_level_bgs(out, bgs):
 def gen_levels(out, ep, nums):
     """Level headers and events (docs/data_formats.md §1.2-1.3) as portable C;
     levels[i] is lvlFileNum i + 1 of the episode."""
+    drop_max = max([1] + [sum(event.type in (33, 45) and event.dat in (533, 534)
+                              for event in level.load_level(ep, num).events) for num in nums])
     h = (emit.HEADER + "#ifndef GEN_LEVEL_H\n#define GEN_LEVEL_H\n#include \"game/types.h\"\n"
+         f"#define DROP_EVENT_MAX {drop_max}\n"
          "typedef struct {\n    uint16_t time;\n    uint8_t type, dat4;\n    int16_t dat, dat2;\n"
          "    int8_t dat3, dat5, dat6;\n} LevelEvent;\n"
          "typedef struct {\n"

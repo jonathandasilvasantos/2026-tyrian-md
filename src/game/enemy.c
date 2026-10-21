@@ -7,6 +7,7 @@
 #include "game.h"
 #include "player.h"
 #include "rng.h"
+#include "mode.h"
 #include "gen_data/items.h"
 #include "gen_data/difficulty.h"
 
@@ -334,6 +335,7 @@ void enemies_update(int offset, int16_t map_x_ofs, int16_t back_move)
                     if (game.difficulty > DIFFICULTY_MANIACAL)
                         e->eshotwait[j - 1] = e->eshotwait[j - 1] / 2 + 1;
                 }
+                if (game_mode.galaga && (!e->eyc || rng_mod(400) >= game_mode.shot_frequency)) goto enemy_end;
                 switch (t) {
                 case 252:   /* Savara boss dual missile */
                     if (e->ey > 20) {
@@ -401,6 +403,7 @@ void enemies_update(int offset, int16_t map_x_ofs, int16_t back_move)
                 if (e->launchspecial == 1 && e->linknum < 100) n->linknum = e->linknum;
             }
         }
+enemy_end:
         continue;
 enemy_gone:
         enemy_avail[i] = EA_FREE;

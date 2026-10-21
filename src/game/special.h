@@ -6,7 +6,7 @@ typedef struct {
     uint16_t flare, astral, weapon;
     int8_t filter, frequency;
     uint8_t wait, next_wait, flare_start, linked, held, zinglon, pulse, spray;
-    uint8_t combo[3], executed;
+    uint8_t combo[21], executed;
 } SpecialState;
 extern SpecialState special_state;
 void special_init(void);

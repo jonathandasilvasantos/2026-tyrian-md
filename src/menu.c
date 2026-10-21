@@ -8,6 +8,7 @@
 #include "game/shop.h"
 #include "game/password.h"
 #include "game/cubes.h"
+#include "game/mode.h"
 #include "gen_data/fonts.h"
 #include "gen_data/items.h"
 #include "gen_data/script.h"
@@ -237,6 +238,7 @@ u8 shop_screen(u8 shop_index)
         if (redraw) {
             redraw = 0;
             menu_text(1, 0, "UPGRADE SHIP", 38);
+            if (game_mode.extra) menu_text(1, 2, "BONUS GAME", 38);
             strcpy(line, "Cash ");
             num(line + 5, players[0].cash);
             menu_text(1, 1, line, 38);

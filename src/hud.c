@@ -3,6 +3,7 @@
  * playfield.  Tyrian's TINY_FONT (one cell per character) replaces SGDK's
  * font in VRAM.  Window tiles are high priority, over the sprites.
  * Values are redrawn only when they change (a few tilemap writes). */
+#include "game/mode.h"
 #include "hud.h"
 #include "game/game.h"
 #include "game/player.h"
@@ -164,7 +165,7 @@ void hud_update(void)
     }
     if (dirty || p->weapon_power[0] != shown_front) {
         shown_front = p->weapon_power[0];
-        strcpy(buf, "LV  ");
+        strcpy(buf, game_mode.arcade ? "LIV " : "LV  ");
         num(buf + 3, shown_front, 2);
         put_text(COL0, 14, p->weapon_id[0] ? buf : "-", 6);
     }

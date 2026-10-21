@@ -2,6 +2,7 @@
  * Direction symbols are sampled before inertia/clipping, as on the PC. */
 #include "special.h"
 #include "player.h"
+#include "mode.h"
 #include "gen_data/items.h"
 
 static const uint8_t keys[26][8] = {
@@ -17,13 +18,18 @@ static const uint8_t ship_combos[14][3] = {
     {10,3,5}, {5,8,9}, {1,3,0}, {7,16,17}, {2,11,12}, {3,8,10}, {0,0,0}
 };
 
+static const uint8_t super_combos[21] = {
+    15,16,17,18,19,20,21,22,23,24,7,8,5,25,14,4,6,3,9,2,26
+};
+
 void special_combo(uint8_t symbol)
 {
     SpecialState *st = &special_state;
     uint8_t ship = players[0].ship, i;
     if (ship >= 14 || !symbol || symbol > 9) return;
-    for (i = 0; i < 3; i++) {
-        uint8_t combo = ship_combos[ship][i], pos = st->combo[i], next;
+    for (i = 0; i < (game_mode.super_tyrian ? 21 : 3); i++) {
+        uint8_t combo = game_mode.super_tyrian ? super_combos[i] : ship_combos[ship][i];
+        uint8_t pos = st->combo[i], next;
         if (!combo) { st->combo[i] = 0; continue; }
         next = keys[combo - 1][pos];
         if (next == symbol) {

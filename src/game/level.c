@@ -11,8 +11,10 @@
 #include "player.h"
 #include "filter.h"
 #include "stars.h"
+#include "mode.h"
 #include "rng.h"
 #include "gen_data/level.h"
+#include "gen_data/items.h"
 
 #define LV (&levels[game.level])
 #define level_events (LV->events)
@@ -26,6 +28,31 @@ static const int16_t layer_rows[3] = { 300, 600, 600 };
 #define EV12_MAX 16
 static uint16_t ev12_done[EV12_MAX];
 static uint8_t ev12_count;
+
+/* The PC rewrites random drop events in RAM. Remember only changed IDs;
+ * the converter bounds capacity by the episode's actual mutable records. */
+static struct { uint16_t event, value; } drop_overrides[DROP_EVENT_MAX];
+static uint8_t drop_override_count;
+
+static uint16_t drop_id(const LevelEvent *event)
+{
+    uint8_t i;
+    for (i = 0; i < drop_override_count; i++)
+        if (drop_overrides[i].event == game.event_loc) return drop_overrides[i].value;
+    return (uint16_t)event->dat;
+}
+
+static void remember_drop(const LevelEvent *event, uint16_t value)
+{
+    uint8_t i;
+    if (value == (uint16_t)event->dat) return;
+    for (i = 0; i < drop_override_count; i++)
+        if (drop_overrides[i].event == game.event_loc) break;
+    if (i == DROP_EVENT_MAX) return; /* all original records are budgeted */
+    drop_overrides[i].event = game.event_loc;
+    drop_overrides[i].value = value;
+    if (i == drop_override_count) drop_override_count++;
+}
 
 static int16_t iabs(int16_t v) { return v < 0 ? -v : v; }
 
@@ -72,6 +99,7 @@ void level_init(void)
     game.level_timer_countdown = 0;
     for (l = 0; l < 10; l++) game.global_flags[l] = 0;
     ev12_count = 0;
+    drop_override_count = 0;
 }
 
 int16_t level_layer_row(int layer)
@@ -153,7 +181,10 @@ uint8_t level_search_for(uint8_t link, uint8_t *out)
 {
     int i, found = -1;
     for (i = 0; i < ENEMY_MAX; i++)
-        if (enemy_avail[i] == EA_ACTIVE && enemies[i].linknum == link) found = i;
+        if (enemy_avail[i] == EA_ACTIVE && enemies[i].linknum == link) {
+            found = i;
+            if (game_mode.galaga) enemies[i].evalue += enemies[i].evalue;
+        }
     if (found < 0) return 0;
     if (out) *out = (uint8_t)found;
     return 1;
@@ -388,7 +419,9 @@ static void event_system(void)
     case 25:
     case 47:
         for (i = 0; i < ENEMY_MAX; i++)
-            if (ev->dat4 == 0 || enemies[i].linknum == ev->dat4) enemies[i].armorleft = (uint8_t)ev->dat;
+            if (ev->dat4 == 0 || enemies[i].linknum == ev->dat4)
+                enemies[i].armorleft = ev->type == 25 && game_mode.galaga ?
+                    (uint8_t)(ev->dat * (game.difficulty / 2)) : (uint8_t)ev->dat;
         break;
     case 26: game.small_enemy_adjust = (uint8_t)ev->dat; break;
     case 27: {
@@ -423,13 +456,14 @@ static void event_system(void)
         if (b) enemies[b - 1].ey = 190;
         break;
     case 33: {
-        /* the PC rewrites dat (533 -> random special) in place; ours is local */
-        /* "lives" aliases the front weapon power in a story game
-         * (mainint.c: lives = &items.weapon[p].power) */
-        uint16_t die = (uint16_t)ev->dat;
+        uint16_t die = drop_id(ev);
         uint8_t lives = players[0].weapon_power[FRONT_WEAPON];
-        if (die == 533 && (lives == 11 || rng_mod(15) < lives))
-            die = 829 + rng_mod(6);   /* drops a random special weapon */
+        static const uint8_t super_specials[4] = {1,2,4,5};
+        if ((die == 512 || die == 513) && game_mode.arcade) break;
+        if (!game_mode.super_tyrian && die == 533 && (lives == 11 || rng_mod(15) < lives))
+            die = 829 + rng_mod(6);
+        if (die == 534 && game_mode.super_tyrian) die = 828 + super_specials[rng_mod(4)];
+        remember_drop(ev, die);
         for (i = 0; i < ENEMY_MAX; i++)
             if (enemies[i].linknum == ev->dat4) enemies[i].enemydie = die;
         break;
@@ -462,13 +496,20 @@ static void event_system(void)
         filter_state.fade_start = ev->dat6 == 0;
         break;
     case 45: {
-        /* arcade/2-player only: a story game only consumes the RNG */
-        if (ev->dat == 533 && players[0].weapon_power[FRONT_WEAPON] != 11) rng_mod(15);
+        uint16_t die;
+        uint8_t lives = players[0].weapon_power[FRONT_WEAPON];
+        if (game_mode.super_tyrian) break;
+        die = drop_id(ev);
+        if (die == 533 && (lives == 11 || rng_mod(15) < lives)) die = 829 + rng_mod(6);
+        remember_drop(ev, die);
+        if (game_mode.arcade)
+            for (i = 0; i < ENEMY_MAX; i++)
+                if (enemies[i].linknum == ev->dat4) enemies[i].enemydie = die;
         break;
     }
     case 46:
         if (ev->dat3 != 0) game.damage_rate = (uint8_t)ev->dat3;
-        if (ev->dat2 == 0) {
+        if (ev->dat2 == 0 || game_mode.arcade) {
             game.difficulty += ev->dat;
             if (game.difficulty < DIFFICULTY_EASY) game.difficulty = DIFFICULTY_EASY;
             if (game.difficulty > DIFFICULTY_10) game.difficulty = DIFFICULTY_10;
@@ -589,6 +630,9 @@ static void event_system(void)
         set_ptr(0, ev->dat / 2);
         set_ptr(1, (ev->dat2 > 0 ? ev->dat2 : ev->dat) / 2);
         break;
+    case 78:
+        if (game_mode.shot_frequency < 10) game_mode.shot_frequency++;
+        break;
     case 79:
         game.boss_link[0] = (uint8_t)ev->dat;
         game.boss_link[1] = (uint8_t)ev->dat2;
@@ -596,6 +640,13 @@ static void event_system(void)
     case 81:
         game.layer[1].wrap = ev->dat / 2;
         game.layer[1].wrap_to = ev->dat2 / 2;
+        break;
+    case 82:
+        if (ev->dat >= 0 && ev->dat <= SPECIAL_NUM) {
+            players[0].special_id = (uint8_t)ev->dat;
+            players[0].shot_multi_pos[8] = players[0].shot_multi_pos[10] = 0;
+            players[0].shot_repeat[8] = players[0].shot_repeat[10] = 0;
+        }
         break;
     default:
         break;   /* visual/audio-only or unused types */

@@ -12,6 +12,7 @@
 #include "gen_data/items.h"
 #include "game/player.h"
 #include "game/special.h"
+#include "game/mode.h"
 
 int main(int argc, char **argv)
 {
@@ -32,6 +33,14 @@ int main(int argc, char **argv)
         players[0].option_id[0] = left;
         players[0].option_id[1] = right;
         game_start_level(LEVEL_FIRST);
+    }
+    if (getenv("B68K_MODE") && atoi(getenv("B68K_MODE"))) {
+        int mode = atoi(getenv("B68K_MODE"));
+        int level = getenv("B68K_LEVEL") ? atoi(getenv("B68K_LEVEL")) : 0;
+        if (mode < 1 || mode > 2 || level < 1 || level > LEVEL_COUNT) return 2;
+        mode_engage();
+        if (mode == 2) mode_galaga();
+        game_start_level(level - 1);
     }
     if (argc > 6) {
         int bombs = atoi(argv[6]);

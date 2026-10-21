@@ -37,7 +37,7 @@ def test_episode_levels_and_destinations(episode, first):
             assert ops[pc + 1] < len(shops)
             size = 2
         elif op in (script.OP_JUMP, script.OP_JUMP_IF_EASY, script.OP_JUMP_IF_DIED,
-                    script.OP_JUMP_IF_TIMER, script.OP_JUMP_IF_SHIP13):
+                    script.OP_JUMP_IF_TIMER, script.OP_JUMP_IF_SHIP13, script.OP_JUMP_IF_ARCADE):
             assert 0 < ops[pc + 1] < len(sections)
             size = 2
         elif op == script.OP_CUBES:

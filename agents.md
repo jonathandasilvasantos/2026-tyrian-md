@@ -243,8 +243,8 @@ Every intentional difference from OpenTyrian, one line each:
 - Flow — the episode script is compiled to bytecode (tools/tyrdata/
   script.py); original story text/picture/music commands now yield to the
   presentation frontend; dropped for now: ending animation,
-  galaga/extra modes (level 1.18 "ALE" never ends without
-  galaga mode), two-player branches. Death
+  the linked GALAGA ship and the remaining two-player branches. ALE is
+  intentionally continuous until game over; its core lives/ENGAGE loop is ported. Death
   replays the level with the items it started with (the PC reloads its
   level-start save). Shop passwords preserve progress across power-off.
 - Story presentation — all 31 text pages retain their original strings, TINY_FONT
@@ -267,6 +267,16 @@ Every intentional difference from OpenTyrian, one line each:
   all new tiles arrive. Invisible black shadow texels share transparency on
   the guaranteed black backdrop. Passwords save pre-command lastCubeMax as
   JE_saveGame does, so reloading never reapplies ]+ to an already raised count.
+- Scripted modes — ]e sets the original Stalker/Atomic RailGun equipment,
+  arcade lives and SuperTyrian's 21 combos; ]g forces Normal, zero shields,
+  power-one shots, original cash-to-life thresholds, turret suppression,
+  search-value doubling and event-78 frequency; ]x marks bonus navigation —
+  portable mode state and an internal password preserve the pre-ENGAGE backup —
+  the last life shows a text game-over screen and restores the checkpoint.
+  The pickup's linked second ship remains required; this is the core mode loop,
+  not complete GALAGA. Event 33/45 random drop rewrites persist for the level,
+  including the PC's RNG use by story-only event 45. Event 82 grants a special
+  with zero cooldown. SuperTyrian completion returns to the title.
 - Difficulty — six original story choices are directly visible on the pad menu
   instead of hiding the last three behind keyboard codes; enemy armor/value
   multipliers and score-based increases follow OpenTyrian, precomputed with
@@ -276,7 +286,7 @@ Every intentional difference from OpenTyrian, one line each:
 - Equipped specials — story types 1–11 use the PC projectiles, repulsor,
   attractor, flare durations/frequencies, linked firing, waits and primary-fire
   edge trigger; 47 data records are converted — portable simulation — standard ship combos, shield/armor costs, invulnerability, repair, spray
-  flares and option spawning are implemented. SuperTyrian mode remains pending; repair-P2 awaits the second-player
+  flares and option spawning are implemented. The 21 SuperTyrian combos and scripted ENGAGE equipment are implemented; full mode selection and repair-P2 await the second-player
   engine.
   HUD uses a six-character name and readiness text instead of the PC icon.
 - Starfield / Astral — original 100 star positions, speed/color rules, 16-bit
@@ -366,7 +376,7 @@ Fill and keep current.
   - `enemy_shots` 1,440, `explosions` 1,024, `gfx_slot` 848 and `big_slot` 1,234 (one byte per converted piece/frame), shot collision lists ~300.
   - total .bss depends on the episode: episode 1 34,372 bytes; episode 2
     34,980; episode 3 34,364; episode 4 30,124 (historical separate builds).
-    Unified cartridge with sidekicks: .bss 45,360 bytes + .data 90; active table pointers
+    Unified cartridge with sidekicks: .bss 45,464 bytes + .data 90; active table pointers
     189 bytes, two campaign-state bytes, dynamic sprite-slot count 2 bytes,
     PAL sprite velocity scale 2 bytes; HUD text uses a 32-bit tick deadline.
     `Player`: 20 pairs of 16-bit history coordinates, two 20-byte companion
@@ -377,11 +387,11 @@ Fill and keep current.
     bytes; rendered scroll: 4 bytes; Astral flag: 1 byte; Plane B mirror:
     4,096 bytes; star rotation: 2 bytes.
     SGDK DMA heap allocations: 9,476 bytes including block headers (8 KB
-    copy buffer and 80 x 16-byte queue); measured heap free: 8,048 bytes,
+    copy buffer and 80 x 16-byte queue); measured heap free: 7,944 bytes,
     with the 0xA00 stack reserve separate. BSS + data + allocated heap +
-    reserved stack: 57,486 of 65,536 bytes.
+    reserved stack: 57,590 of 65,536 bytes.
     Filter simulation: 9 bytes; CRAM output: 128 bytes + 2-byte last-color key.
-    Special runtime: 20 bytes (three combo positions and queued execution included); special HUD cache: 2 bytes; replay special ID: 1 byte.
+    Special runtime: 38 bytes (21 combo positions and queued execution included); special HUD cache: 2 bytes; replay special ID: 1 byte.
     Sidekick HUD state cache: 4 bytes; pause message pointer: 4 bytes;
     campaign difficulty baseline: 1 byte (plus alignment);
     replay loadout controls: 4 bytes; checkpoint replay flag: 1 byte (fits alignment); superbomb HUD cache: 1 byte.
@@ -393,7 +403,7 @@ Fill and keep current.
   - Story presentation adds a 4-byte picture pointer, one scene-skip latch and
     two benchmark bytes (8 bytes including alignment); no framebuffer or heap
     allocation. Immediate map upload uses one 80-byte stack row; picture fades
-    use 128 temporary bytes. Heap free is now 8,048 bytes, stack reserve separate.
+    use 128 temporary bytes. Heap free is now 7,944 bytes, stack reserve separate.
   - Datacube cache: 2 x 180 tile IDs = 720 bytes; script cube IDs: 4 bytes;
     pre-command checkpoint cube count: 2 bytes; reader benchmark flag: 1 byte.
     Total BSS growth is 732 bytes including alignment. Cube text is never copied
@@ -405,6 +415,10 @@ Fill and keep current.
     superpixels (net BSS growth: 512 bytes). The cache/VRAM regions stay fixed.
     Star transforms use 20 stack bytes per sprite rebuild; the exact high-byte
     coordinate lookup costs 1,024 fixed ROM bytes and no persistent RAM.
+  - Scripted mode state: 10 bytes; pre-bonus backup: 49 password characters;
+    18 extra combo positions, debug selector: 1 byte. Converter-sized event-drop
+    overrides: 6 x 4 bytes plus a 1-byte count (maximum over all four episodes).
+    Total BSS growth for the core mode implementation: 104 bytes with alignment.
 - VRAM map: (region — tiles/bytes)
   - tiles 0-15 SGDK system; 16.. background slot pool, sized per level by
     `BG_POOL_NEED` (684 for 1.9: worst 30-row window, both layers); then free
@@ -425,9 +439,9 @@ Fill and keep current.
     text pages at 208..567, face 568..630. Nine lines use 45 hardware sprites,
     five / 160 pixels per scanline; no gameplay objects share the screen.
 - Entity caps: enemies 100, enemy shots 60, player shots 64, explosions 64, cosmetic superpixels 64.
-- ROM: unified cartridge (2026-10-21): fixed .text 3,624,448 bytes,
+- ROM: unified cartridge (2026-10-21): fixed .text 3,629,568 bytes,
   initial .data 90; far graphics and extra option/weapon frames bring the used physical ROM
-  end to 7,869,888 bytes, padded to 8 MB (93%). Password codec/UI add ~5.9 KB of code/tables. The fixed region still has 45,478 bytes
+  end to 7,869,888 bytes, padded to 8 MB (93%). Password codec/UI add ~5.9 KB of code/tables. The fixed region still has 40,358 bytes
   of headroom. Packing the 144 star/spark frames into 25 unique 8x8 tiles
   in seven ordinary cache slots saves 70,144 ROM bytes and 136 BSS bytes,
   including the new cache-full flag; every converted pixel is preserved. Datacubes add 133,684 bytes of fixed packed line maps/references
@@ -461,6 +475,12 @@ Fill and keep current.
   (bottom 4 px of tile A + top 4 px of tile B) for each vertical pair that
   occurs (max 515 pairs per layer). Maps stay in tile units.
 - Worst frame (cycles): (level — cycles — date)
+  - Core scripted modes, 600 ticks (2026-10-21), before linked-ship support:
+    ALE: 1,087 loop frames, 55 frames without idle, tick/render work peaks
+    207,172 / 183,064 cycles; TIME WAR: 1,749 frames, 510 without idle,
+    309,808 / 177,738; SQUADRON: 1,540 frames, 270 without idle,
+    402,976 / 209,454. These levels need substantial timing work. Stacks
+    1,152..1,178 bytes, gameplay DMA peaks 2,072..2,176 bytes, none above 7 KB.
   - Packed tiny effects and star coordinate/occlusion lookup, episode 3,
     600 ticks (2026-10-21): 1,340 loop frames versus 1,382 before; average busy
     88,335 cycles, 222 frames without idle. Non-tick loop work averages 115,739
@@ -591,6 +611,11 @@ Fill and keep current.
   state is hashed. Episode 3 opening/sidekick goldens changed with the restored
   RNG calls, after independent host, NTSC and PAL agreement. Recording mode
   now requires both video regions before writing any golden.
+  Four scripted-mode replays (ENGAGE opening, ALE, TIME WAR, SQUADRON) run
+  independently on host, NTSC and PAL (`make parity-modes`). Unit tests verify
+  exact equipment, all-life respawn timing, reward thresholds, 21-combo access,
+  backup restoration, turret short-circuit RNG and persistent event drops.
+  Linked-ship behavior is still pending and these opening checks do not cover it.
   Converter unit tests (Python) join tier 0 from stage 2. The runner sets
   `debug_hold_level` at the first tick: death/end does not restart or leave
   the level during a fixed-length replay, matching the host. The default

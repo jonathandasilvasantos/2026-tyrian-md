@@ -4,6 +4,7 @@
 #include "game.h"
 #include "player.h"
 #include "difficulty.h"
+#include "mode.h"
 #include "gen_data/script.h"
 
 #define DEFAULT_SONG_BUY 2   /* musmast.h: play_song(DEFAULT_SONG_BUY) */
@@ -40,7 +41,7 @@ FlowStep script_run(void)
             skip = 0;
             switch (op[0]) {
             case OP_JUMP: case OP_JUMP_IF_EASY: case OP_JUMP_IF_DIED: case OP_JUMP_IF_TIMER:
-            case OP_JUMP_IF_SHIP13: case OP_SHOP: case OP_SHOP_SONG:
+            case OP_JUMP_IF_SHIP13: case OP_SHOP: case OP_SHOP_SONG: case OP_JUMP_IF_ARCADE:
             case OP_TEXT: case OP_PICTURE: case OP_MUSIC: case OP_FADE:
             case OP_CUBE_SET: case OP_CUBE_ADD: len = 2; break;
             case OP_CUBES: len = 2 + op[1]; break;
@@ -118,6 +119,22 @@ FlowStep script_run(void)
             script.shop_song = op[1];
             len = 2;
             break;
+        case OP_ENGAGE:
+            mode_engage();
+            break;
+        case OP_GALAGA:
+            mode_galaga();
+            break;
+        case OP_EXTRA:
+            game_mode.extra = 1;
+            break;
+        case OP_BACKUP:
+            mode_checkpoint();
+            break;
+        case OP_JUMP_IF_ARCADE:
+            if (game_mode.arcade) { go_section(op[1]); continue; }
+            len = 2;
+            break;
         case OP_SAVE:
             script.save_section = script.section;
             break;
@@ -149,6 +166,7 @@ void script_level_done(uint8_t next_section, uint8_t died)
     script.died = died;
     if (!died) {
         game_level_complete();
+        mode_leave_level();
         go_section(next_section);
         /* JE_loadMap initializes saveLevel on entry, before internal jumps. */
         script.save_section = script.section;

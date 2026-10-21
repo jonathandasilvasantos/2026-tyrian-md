@@ -99,7 +99,7 @@ def generate_episodes(out, default, gen_bg, write_bgs, gen_levels, gen_script, g
         elif module == "script":
             for macro, var in (("SCRIPT_SECTIONS", "script_section_count"), ("SHOP_COUNT", "shop_count")):
                 header = re.sub(rf"#define {macro} \d+", f"#define {macro} {var}\nextern uint8_t {var};", header)
-        for macro in ("BG_POOL_NEED", "BG_CELLS_TOTAL", "SPR_GFX_COUNT", "BIG_GFX_COUNT"):
+        for macro in ("BG_POOL_NEED", "BG_CELLS_TOTAL", "SPR_GFX_COUNT", "BIG_GFX_COUNT", "DROP_EVENT_MAX"):
             values = [re.search(rf"#define {macro} (\d+)", headers[ep][module]) for ep in range(1, 5)]
             if values[0]:
                 header = re.sub(rf"#define {macro} \d+", f"#define {macro} {max(int(v[1]) for v in values)}", header)

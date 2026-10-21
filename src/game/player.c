@@ -7,6 +7,7 @@
 #include "rng.h"
 #include "sidekick.h"
 #include "special.h"
+#include "mode.h"
 #include "gen_data/items.h"
 #include "gen_data/level.h"
 
@@ -105,14 +106,17 @@ void player_tick(uint16_t pad)
         game.level_end_warp++;
     }
     if (!p->is_alive) {
+        uint8_t was_exploding = p->exploding_ticks;
         if (p->exploding_ticks > 0) {
             p->exploding_ticks--;
             explosion_setup_large(0, 0, p->x + rng_mod(32) - 16, p->y + rng_mod(32) - 16 + 7);
             explosion_setup_large(0, 0, p->x, p->y + 7);
             if (game.level_end > 0) game.level_end--;
         }
-        if (!game.end_level) sidekicks_animate();
-        return;
+        if (was_exploding || !mode_respawn()) {
+            if (!game.end_level) sidekicks_animate();
+            return;
+        }
     }
     if (game.end_level) {
         /* end-of-level warp: the ship flies off the top */
@@ -179,7 +183,8 @@ void player_tick(uint16_t pad)
     }
 
 
-    special_tick(pad);
+    if (game_mode.galaga) special_state.executed = 0;
+    else special_tick(pad);
     for (bay = 0; bay < 2; bay++) {
         uint16_t item = p->weapon_id[bay];
         if (!item) continue;
@@ -188,7 +193,7 @@ void player_tick(uint16_t pad)
         } else if (pad & PAD_B) {
             uint8_t mode = bay == REAR_WEAPON ? p->weapon_mode - 1 : 0;
             shot_create(item, (uint8_t)bay, p->x, p->y,
-                        weapon_ports[item].op[mode][p->weapon_power[bay] - 1], 1);
+                        weapon_ports[item].op[mode][game_mode.galaga ? 0 : p->weapon_power[bay] - 1], 1);
         }
     }
     /* JE_playerMovement: bomb cooldown runs only while bombs are held.

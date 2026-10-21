@@ -2,6 +2,7 @@
  * episode script -> shops and levels; a level runs until it ends or the
  * player dies (then it is replayed with the items it started with). */
 #include "story.h"
+#include "game/mode.h"
 #include <genesis.h>
 #include "game/game.h"
 #include "game/episode.h"
@@ -41,7 +42,7 @@ volatile u8 debug_episode;
 volatile u8 debug_loadout, debug_left_option, debug_right_option, debug_bombs, debug_special;
 /* Headless runner compares a fixed number of ticks, including after death. */
 volatile u8 debug_hold_level, debug_checkpoint;
-volatile u8 debug_story_page, debug_story_picture, debug_cubes;
+volatile u8 debug_story_page, debug_story_picture, debug_cubes, debug_mode;
 
 /* game_tick: one simulation step.  Kept as a real function (noinline) so
  * tools/bench68k can count ticks and feed replay pads by its address. */
@@ -84,6 +85,7 @@ static u8 play_level(const FlowStep *st)
         players[0].option_id[0] = debug_left_option <= OPTION_NUM ? debug_left_option : 0;
         players[0].option_id[1] = debug_right_option <= OPTION_NUM ? debug_right_option : 0;
     }
+    if (!game_mode.no_backup) mode_checkpoint();
     game_start_level(st->level);
     if (debug_checkpoint) {
         char code[PASSWORD_LENGTH + 1];
@@ -142,6 +144,7 @@ int main(bool hard)
     cart_init();
     dmaq_init();
     sound_init();
+restart_campaign:
     game_new(debug_episode ? debug_episode : LEVEL_DEFAULT_EPISODE, DIFFICULTY_NORMAL);
     if (!debug_level && !debug_episode) {
         for (;;) {
@@ -166,6 +169,8 @@ int main(bool hard)
         FlowStep st = { FLOW_LEVEL, (u8)(debug_level - 1), 0, 0, 0, 0, 0 };
         while (TRUE) {
             game_new(debug_episode ? debug_episode : LEVEL_DEFAULT_EPISODE, DIFFICULTY_NORMAL);
+            if (debug_mode) mode_engage();
+            if (debug_mode == 2) mode_galaga();
             play_level(&st);
         }
     }
@@ -203,6 +208,11 @@ int main(bool hard)
             static Player saved;
             saved = players[0];   /* death replays the level with these items */
             u8 died = play_level(&st);
+            if (died && game_mode.no_backup) {
+                sound_music(11); /* musmast.h:SONG_GAMEOVER, 1-based */
+                message_screen("GAME OVER", "Returning to checkpoint");
+                if (mode_restore()) break;
+            }
             if (died) {
                 u32 orbit_phase = players[0].orbit_phase;
                 players[0] = saved;
@@ -215,6 +225,7 @@ int main(bool hard)
         case FLOW_END:
             story_reset();
             message_screen("EPISODE COMPLETE", "Tyrian MD by Jonathan Santos");
+            if (game_mode.super_tyrian) goto restart_campaign;
             game_next_episode();
             sound_music(27);
             message_screen(episode_name(LEVEL_EPISODE), "PRESS START");
