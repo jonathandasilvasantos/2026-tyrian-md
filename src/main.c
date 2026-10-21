@@ -18,6 +18,7 @@
 #include "dmaq.h"
 #include "cart.h"
 #include "hud.h"
+#include "color_effects.h"
 #include "menu.h"
 #include "sound.h"
 
@@ -92,6 +93,7 @@ static u8 play_level(const FlowStep *st)
     if (debug_bombs) players[0].superbombs = debug_bombs <= 10 ? debug_bombs : 10;
     if (debug_special) special_equip(debug_special);
     level_screen_setup(level_names[st->name]);
+    color_effects_reset();
     sound_music(st->song);
     while (TRUE) {
         u16 pad = read_pad();
@@ -122,6 +124,7 @@ static u8 play_level(const FlowStep *st)
             sound_flush();
             hud_update();
         }
+        color_effects_update();
         SYS_doVBlankProcess();
         if (debug_hold_level) continue;
         if (game.really_end_level) return 0;

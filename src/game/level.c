@@ -9,6 +9,7 @@
 #include "game.h"
 #include "enemy.h"
 #include "player.h"
+#include "filter.h"
 #include "rng.h"
 #include "gen_data/level.h"
 
@@ -448,6 +449,13 @@ static void event_system(void)
         break;
     case 42: game.background3over = 2; break;
     case 43: game.background2over = (uint8_t)ev->dat; break;
+    case 44:
+        filter_state.active = ev->dat > 0;
+        filter_state.fade = ev->dat == 2;
+        filter_state.hue = ev->dat2; filter_state.brightness = ev->dat3;
+        filter_state.next_hue = ev->dat4; filter_state.delta = ev->dat5;
+        filter_state.fade_start = ev->dat6 == 0;
+        break;
     case 45: {
         /* arcade/2-player only: a story game only consumes the RNG */
         if (ev->dat == 533 && players[0].weapon_power[FRONT_WEAPON] != 11) rng_mod(15);

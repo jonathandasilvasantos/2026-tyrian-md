@@ -2,6 +2,7 @@
 #include "episode.h"
 #include "player.h"
 #include "special.h"
+#include "filter.h"
 #include "shots.h"
 #include "enemy.h"
 #include "level.h"
@@ -23,6 +24,7 @@ void game_start_level(uint8_t lv)
     game.map_x_ofs[0] = game.map_x_ofs[1] = game.map_x_ofs[2] = 0;
     game.old_map_x_ofs = game.old_map_x3_ofs = 0;
     level_init();
+    filter_init();
     enemies_init();
     player_start_level();
     shots_init();
@@ -161,6 +163,7 @@ void game_step(uint16_t pad)
         }
     }
 
+    filter_tick();
     game.frame++;
 }
 
@@ -179,6 +182,10 @@ uint32_t game_hash(void)
     uint32_t h = 2166136261u;
     int i;
 
+    h = mix(h, (uint8_t)filter_state.hue | (uint32_t)(uint8_t)filter_state.brightness << 8 |
+        (uint32_t)(uint8_t)filter_state.next_hue << 16 | (uint32_t)(uint8_t)filter_state.delta << 24);
+    h = mix(h, filter_state.active | filter_state.fade << 1 | filter_state.fade_start << 2 |
+        (uint32_t)(uint8_t)filter_state.draw_hue << 8 | (uint32_t)(uint8_t)filter_state.draw_brightness << 16);
     h = mix(h, game.frame);
     h = mix(h, game.cur_loc | (uint32_t)game.event_loc << 16);
     h = mix(h, game.power | (uint32_t)p->cash << 16);

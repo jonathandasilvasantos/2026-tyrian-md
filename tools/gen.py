@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 import numpy as np  # noqa: E402
 
 from tyrdata import difficulty as difficulty_mod
+from tyrdata import filters as filters_mod
 from tyrdata import script as script_mod  # noqa: E402
 from tyrdata import data_path, emit, items, level, palette, quantize, raster, shapes  # noqa: E402
 
@@ -23,6 +24,16 @@ GAME_PALETTE = 5           # in-game PC palette (docs/data_formats.md §5)
 PLAYER_CRAM = (0x0A00, 0x00A0, 0x0002, 0x0222, 0x0C42, 0x0444, 0x0886,
                0x02C6, 0x0008, 0x0CC8, 0x002C, 0x048C, 0x0CEC)
 BG_WIN_ROWS = 30           # cell rows resident per layer (src/bg.c)
+
+
+def gen_filters(out):
+    inverse, colors = filters_mod.make_tables(palette.load_palettes()[GAME_PALETTE])
+    emit.write_if_changed(os.path.join(out, "filters.h"), emit.HEADER +
+                         '#ifndef GEN_FILTERS_H\n#define GEN_FILTERS_H\n#include <types.h>\n'
+                         'extern const u8 cram_pc_index[512];\nextern const u16 filtered_palette[256];\n#endif\n')
+    emit.write_if_changed(os.path.join(out, "filters.c"), emit.HEADER + '#include "filters.h"\n' +
+                         emit.c_array("u8", "cram_pc_index", inverse, 16, "{}") +
+                         emit.c_array("u16", "filtered_palette", colors, 16, "0x{:04X}"))
 
 
 def gen_palettes(out):
@@ -898,6 +909,7 @@ def main():
     generate_episodes(out, episode, gen_level_bg, write_level_bgs, gen_levels,
                       gen_script, gen_items, gen_sprites)
     gen_palettes(out)
+    gen_filters(out)
     gen_difficulty(out)
     gen_shot_bounds(out)
     gen_motion(out)

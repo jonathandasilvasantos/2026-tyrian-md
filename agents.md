@@ -125,7 +125,7 @@ what changed, why, worst-case visible difference. Approved directions:
   PSG for simple blips. Sample rates reduced to fit ROM.
 - **Scope**: all episodes and features present in OpenTyrian are the target
   (user request, 2026-10-21). Start with episodes 1–4 from Tyrian 2.1 data;
-  special palette effects, text screens and the third background layer remain
+  text screens, Astral backgrounds and the third background layer remain
   required; shop checkpoints use passwords; sidekicks and all four episode flows are implemented. Two-player mode, Destruct, networking, jukebox and
   setup/config screens come later. Additional data-dependent content needs
   its original data source; do not invent missing content.
@@ -249,10 +249,15 @@ Every intentional difference from OpenTyrian, one line each:
 - Equipped specials — story types 1–11 use the PC projectiles, repulsor,
   attractor, flare durations/frequencies, linked firing, waits and primary-fire
   edge trigger; 47 data records are converted — portable simulation — standard ship combos, shield/armor costs, invulnerability, repair, spray
-  flares and option spawning are implemented. SuperTyrian mode and palette/
-  Astral-background effects remain pending; repair-P2 awaits the second-player
+  flares and option spawning are implemented. SuperTyrian mode and Astral-background effects remain pending; repair-P2 awaits the second-player
   engine.
   HUD uses a six-character name and readiness text instead of the PC icon.
+- Global filters — event 44, level-entry fades and flare hue/brightness
+  timing follow JE_filterScreen; PC pixel-index changes become 64-word CRAM
+  updates using a deterministic 512-entry inverse color LUT and the lifted PC
+  palette — no runtime pixels/floats — PC colors merged by quantization tint
+  together; PAL2 text black/white remain fixed, HUD bars can tint with actors.
+  Per-enemy palette filters remain pending.
 - Zinglon — beam uses a cached white block and at most 18 sprites, rounded
   to 8-pixel columns, behind enemy bullets — no framebuffer brightening — solid
   white with up to seven extra visual pixels; original pulse interval, strict X
@@ -328,13 +333,14 @@ Fill and keep current.
     sprite piece of the level), shot collision lists ~300.
   - total .bss depends on the episode: episode 1 34,372 bytes; episode 2
     34,980; episode 3 34,364; episode 4 30,124 (historical separate builds).
-    Unified cartridge with sidekicks: .bss 36,260 bytes + .data 90; active table pointers
+    Unified cartridge with sidekicks: .bss 36,404 bytes + .data 90; active table pointers
     181 bytes, two campaign-state bytes, dynamic sprite-slot count 2 bytes,
     PAL sprite velocity scale 2 bytes; HUD text uses a 32-bit tick deadline.
     `Player`: 20 pairs of 16-bit history coordinates, two 20-byte companion
     states, option IDs, 32-bit orbit phase, attachment state, all 11 PC shot
     cooldown/multiposition bays. The level-start Player checkpoint is static
     instead of a large stack local (Player and checkpoint: 204 bytes each).
+    Filter simulation: 9 bytes; CRAM output: 128 bytes + 2-byte last-color key.
     Special runtime: 20 bytes (three combo positions and queued execution included); special HUD cache: 2 bytes; replay special ID: 1 byte.
     Sidekick HUD state cache: 4 bytes; pause message pointer: 4 bytes;
     campaign difficulty baseline: 1 byte (plus alignment);
@@ -357,7 +363,7 @@ Fill and keep current.
 - Entity caps: enemies 100, enemy shots 60, player shots 64, explosions 64.
 - ROM: unified cartridge (2026-10-21): fixed .text ~3.24 MB,
   initial .data 90; far graphics and extra option/weapon frames bring the used physical ROM
-  end to 7,310,720 bytes, padded to 8 MB (86%). Password codec/UI add ~5.9 KB of code/tables. The fixed region still has ~340 KB
+  end to 7,310,720 bytes, padded to 8 MB (86%). Password codec/UI add ~5.9 KB of code/tables. The fixed region still has ~334 KB
   of headroom. The shipped SGDK math source is
   recompiled with function sections (read-only include); garbage collection
   removes ~393 KB of unused log/sqrt tables and other unused math routines.
@@ -387,6 +393,9 @@ Fill and keep current.
   (bottom 4 px of tile A + top 4 px of tile B) for each vertical pair that
   occurs (max 515 pairs per layer). Maps stay in tile units.
 - Worst frame (cycles): (level — cycles — date)
+  - episode 1, Flare equipped with CRAM effects, 600 ticks: avg busy 75,013 /
+    max 127,856 cycles, 30 frames without idle; loop work peaks at 197,706
+    cycles, stack 1,284 bytes. Still slows in dense scenes (2026-10-21).
   - episode 1, Talon invulnerability + Atom Bomb combo replay, 600 ticks:
     avg busy 72,714 / max 118,840 cycles, no frame without idle; loop work
     peaks at 132,888 cycles, stack 1,284 bytes. Not a worst-case bound
@@ -459,7 +468,10 @@ Fill and keep current.
   sidekicks are equipped.
   Two ten-bomb, eight equipped-special and two ship-combo replays also run
   in both regions. Special hashes include combo progress, queued execution,
-  cooldowns and effect state; player hashes include invulnerability ticks. Checkpoint replays on the
+  cooldowns and effect state; player hashes include invulnerability ticks.
+  Global filter state/fade phases are also hashed. Converter tests verify
+  deterministic inverse color matching; C tests cover brightness overflow and
+  the one-tick delay between fade state and displayed colors. Checkpoint replays on the
   68000 encode/load the opening state of each episode, then must match the
   independent host and existing goldens in both regions. Host checkpoint tests
   cover every symbol position for transcription rejection without state changes.

@@ -5,6 +5,7 @@
 #include "shots.h"
 #include "rng.h"
 #include "sidekick.h"
+#include "filter.h"
 #include "gen_data/items.h"
 
 SpecialState special_state;
@@ -140,9 +141,22 @@ void special_tick(uint16_t pad)
     }
     if (st->astral) st->astral--;
     if (st->flare > 1) {
-        /* Keep the PC's filter-flicker RNG draw, even while its palette
-         * brightness effect awaits the hardware renderer. */
-        if (st->filter != -99) (void)rng_mod(2);
+        if (st->filter != -99) {
+            int8_t change;
+            FilterState *f = &filter_state;
+            if (f->hue == -99 && f->brightness == -99) f->active = 0;
+            if (!f->active) {
+                f->hue = st->filter;
+                if (f->hue == 7) f->brightness = 0;
+                f->active = 1;
+            }
+            change = rng_mod(2) == 0 ? -1 : 1;
+            if (f->hue == 7) {
+                if (f->brightness < -6) change = 1;
+                if (f->brightness > 6) change = -1;
+                f->brightness += change;
+            }
+        }
         if (rng_mod(6) < st->frequency) {
             int shot = PLAYER_SHOT_MAX;
             if (st->linked) {
@@ -161,6 +175,10 @@ void special_tick(uint16_t pad)
     } else if (st->flare_start) {
         st->flare_start = 0; st->flare = 0;
         p->shot_repeat[8] = st->linked ? 15 : 200;
+        if (filter_state.hue == st->filter) {
+            filter_state.hue = filter_state.brightness = -99;
+            filter_state.active = 0;
+        }
     }
     if (st->zinglon > 1) {
         st->zinglon--;
