@@ -12,6 +12,7 @@
 #include "game/timing.h"
 #include "game/sidekick.h"
 #include "game/difficulty.h"
+#include "game/special.h"
 #include "gen_data/items.h"
 #include "gen_data/episodes.h"
 #include "gen_data/script.h"
@@ -230,6 +231,55 @@ static void test_bomb_pickups(void)
     CHECK(players[0].superbombs == 0);
 }
 
+static void test_equipped_specials(void)
+{
+    unsigned i;
+    test_init();
+    CHECK(special_equip(1));
+    enemy_shots[0] = (EnemyShot){0};
+    enemy_shots[0].sx = players[0].x - 20;
+    enemy_shots[0].sy = players[0].y - 20;
+    for (i = 0; i < 10; i++) special_tick(0);
+    special_tick(PAD_B);
+    CHECK(enemy_shots[0].sxm == -1 && enemy_shots[0].sym == -1);
+    special_tick(PAD_B);
+    CHECK(enemy_shots[0].sxm == -1); /* edge, not every held tick */
+    special_tick(0); special_tick(PAD_B);
+    CHECK(enemy_shots[0].sxm == -2);
+    CHECK(special_equip(3));
+    for (i = 0; i < 10; i++) special_tick(0);
+    special_tick(PAD_B);
+    CHECK(special_state.zinglon == 49 && players[0].shot_repeat[8] == 100);
+    special_init();
+    CHECK(special_equip(10));
+    for (i = 0; i < 10; i++) special_tick(0);
+    special_tick(PAD_B);
+    CHECK(special_state.flare == 9 && special_state.linked);
+    for (i = 0; i < 8; i++) special_tick(0);
+    CHECK(special_state.flare == 1 && special_state.wait == specials[10].power);
+    special_tick(0);
+    CHECK(special_state.flare == 0 && players[0].shot_repeat[8] == 15);
+}
+
+static void test_zinglon_collision(void)
+{
+    unsigned i;
+    test_init(); enemies_init(); shots_init();
+    for (i = 0; i < 3; i++) {
+        Enemy *e = &enemies[i];
+        *e = (Enemy){0}; enemy_avail[i] = EA_ACTIVE;
+        e->enemytype = 1; e->ex = players[0].x + 7 + (i == 2 ? 30 : 0);
+        e->ey = 10; e->armorleft = i == 1 ? 20 : 10;
+    }
+    special_state.zinglon = 25; special_state.pulse = 1;
+    shots_move();
+    CHECK(enemy_avail[0] == EA_FREE);
+    /* PC beam kills <=10 HP; it does not chip a stronger target's armor. */
+    CHECK(enemies[1].armorleft == 20 && enemy_avail[1] == EA_ACTIVE);
+    CHECK(enemies[2].armorleft == 10 && enemy_avail[2] == EA_ACTIVE);
+    CHECK(!special_state.pulse);
+}
+
 static void test_episode_transition(void)
 {
     unsigned ep;
@@ -397,6 +447,8 @@ int main(void)
         test_difficulty_progression();
         test_enemy_difficulty();
         test_bomb_pickups();
+        test_equipped_specials();
+        test_zinglon_collision();
         test_sidekick_shop();
         test_sidekick_charge_and_ammo();
         test_sidekick_movement();

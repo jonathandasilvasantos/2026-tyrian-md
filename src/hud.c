@@ -6,7 +6,9 @@
 #include "hud.h"
 #include "game/game.h"
 #include "game/player.h"
+#include "game/special.h"
 #include "gen_data/fonts.h"
+#include "gen_data/items.h"
 #include "gen_data/script.h"
 #include "game/enemy.h"
 
@@ -18,6 +20,7 @@ static u16 bar_tile, solid_tile;
 static u32 shown_cash;
 static u16 shown_option[2];
 static u8 shown_bombs;
+static u16 shown_special;
 static u8 shown_armor, shown_shield, shown_power, shown_front, shown_rear, dirty;
 static const char *current_message; /* ROM text, retained while paused */
 static u32 text_until; /* game tick deadline, independent of redraw rate */
@@ -189,6 +192,15 @@ void hud_update(void)
                 }
                 put_text(COL0, 20 + i, buf, 6);
             }
+        }
+    }
+    {
+        u16 ready = !p->shot_repeat[8] && !special_state.wait && special_state.flare < 2 && special_state.zinglon < 2;
+        u16 state = p->special_id * 2 + ready;
+        if (dirty || state != shown_special) {
+            shown_special = state;
+            put_text(COL0, 0, p->special_id ? (ready ? "SP RDY" : "SP ...") : "", 6);
+            put_text(COL0, 25, p->special_id ? special_names[p->special_id] : "", 6);
         }
     }
     if (dirty || shown_bombs != p->superbombs) {

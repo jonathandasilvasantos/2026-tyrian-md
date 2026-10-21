@@ -379,6 +379,7 @@ def gen_items(out, episode=1):
          "typedef struct {\n    uint16_t op[2][11];\n    uint16_t poweruse;\n    uint8_t opnum;\n} WeaponPort;\n"
          "typedef struct {\n    uint16_t shipgraphic;\n    int8_t spd;\n    uint8_t dmg, ani;\n} Ship;\n"
          "typedef struct {\n    uint8_t tpwr, mpwr;\n} Shield;\n"
+         "typedef struct { uint16_t weapon; uint8_t power, type; } Special;\n"
          "typedef struct {\n    uint16_t graphic[20], weapon;\n"
          "    uint8_t power, style, animation, frames, ammo, port;\n} Option;\n"
          "typedef struct {\n"
@@ -405,6 +406,8 @@ def gen_items(out, episode=1):
          "extern const Ship ships[SHIP_NUM + 1];\n"
          "extern const uint8_t generator_power[POWER_NUM + 1];   /* powerAdd per tick */\n"
          "extern const Shield shields[SHIELD_NUM + 1];\n"
+         "#define SPECIAL_NUM 46\nextern const Special specials[SPECIAL_NUM + 1];\n"
+         "extern const char *const special_names[SPECIAL_NUM + 1];\n"
          "extern const Option options[OPTION_NUM + 1];\n"
          "extern const char *const option_names[OPTION_NUM + 1];\n"
          "extern const uint16_t option_cost[OPTION_NUM + 1];\n"
@@ -433,6 +436,10 @@ def gen_items(out, episode=1):
         "{%d,%d,%d,%d}" % (s["shipgraphic"], s["spd"], s["dmg"], s["ani"]) for s in it["ships"]) + "\n};\n"
     c += "const Shield shields[SHIELD_NUM + 1] = {" + ",".join(
         "{%d,%d}" % (x["tpwr"], x["mpwr"]) for x in it["shields"]) + "};\n"
+    c += "const Special specials[SPECIAL_NUM + 1] = {" + ",".join(
+        "{%d,%d,%d}" % (s["wpn"], s["pwr"], s["stype"]) for s in it["specials"]) + "};\n"
+    c += "const char *const special_names[] = {" + ",".join(
+        '"' + s["name"].strip() + '"' for s in it["specials"]) + "};\n"
     c += "const Option options[OPTION_NUM + 1] = {\n    " + ",\n    ".join(
         "{%s,%d,%d,%d,%d,%d,%d,%d}" % (arr(o["gr"]), o["wpnum"], o["pwr"], o["tr"],
                                         o["option"], o["ani"], o["ammo"], o["wport"])
@@ -530,6 +537,7 @@ def gen_sprites(out, it, lvls, bg_pals):
             ship_imgs.append(img[:32])
 
     wids = {w for p in it["ports"][1:] for m in p["op"] for w in m}
+    wids |= {s["wpn"] for s in it["specials"] if s["stype"] in (1, 5, 6, 7, 8, 9, 10, 11, 16)}
     wids |= {104, 535}  # orbiting asteroid killer pickup / superbomb
     wids |= {o["wpnum"] + charge for o in it["options"][1:] for charge in range(o["pwr"] + 1)}
     def level_banks(lvl):
@@ -769,6 +777,10 @@ def gen_sprites(out, it, lvls, bg_pals):
         w = [0] + [palette.to_cram(tuple(int(x) for x in c)) for c in p]
         words += w + [0] * (16 - len(w))
 
+    beam_index = len(big_imgs)
+    big_imgs.append(None)
+    big_tiles.extend([0xffffffff] * 96)
+    big_pal.append(2)
     h = (emit.HEADER + "#ifndef GEN_SPRITES_H\n#define GEN_SPRITES_H\n#include <types.h>\n"
          "/* palette lines 2 (player, shots) and 3 (enemies, items, explosions) */\n"
          "extern const u16 spr_palettes[32];\n"
@@ -783,6 +795,7 @@ def gen_sprites(out, it, lvls, bg_pals):
          "#define GFX_NONE 0xFFFF\n"
          "/* shot frame (1..1000, >500 = sheet 12) -> gfx */\n"
          "extern const u16 shot_gfx[1001];\n"
+         "extern const u16 beam_gfx[1];\n"
          "extern const u16 option_small_gfx[305], option_big_gfx[305];\n"
          "typedef struct { u16 gfx; u8 x, y; } SpecialPiece;\n"
          "extern const SpecialPiece special_pieces[];\n"
@@ -808,6 +821,7 @@ def gen_sprites(out, it, lvls, bg_pals):
     c += emit.c_array("u16", "shot_gfx", shot_index, 16, "{}")
     c += emit.c_array("u16", "option_small_gfx", option_small)
     c += emit.c_array("u16", "option_big_gfx", option_big)
+    c += emit.c_array("u16", "beam_gfx", [beam_index])
     c += emit.c_array("u16", "special_starts", special_starts)
     c += emit.c_array("u8", "special_counts", special_counts, 16, "{}")
     c += "const SpecialPiece special_pieces[] = {" + ",".join(

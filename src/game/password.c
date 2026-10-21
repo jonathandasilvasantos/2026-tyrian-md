@@ -47,7 +47,7 @@ void password_encode(char out[PASSWORD_LENGTH + 1])
     data[13] = p->weapon_mode; data[14] = p->option_id[0]; data[15] = p->option_id[1];
     put32(data + 16, p->cash); put32(data + 20, rng_state);
     data[24] = game.cube_max >> 8; data[25] = game.cube_max;
-    data[26] = script.shop_song; data[27] = 0; /* reserved for special equipment */
+    data[26] = script.shop_song; data[27] = p->special_id;
     crc = checksum(data); data[28] = crc >> 8; data[29] = crc;
     for (i = 0; i < 30; i++) {
         buffer = (buffer << 8) | data[i]; bits += 8;
@@ -79,7 +79,7 @@ uint8_t password_load(const char *text)
         data[9] > SHIELD_NUM || data[10] > PORT_NUM || data[11] > PORT_NUM ||
         !(data[12] & 15) || (data[12] & 15) > 11 || !(data[12] >> 4) || (data[12] >> 4) > 11 ||
         data[13] < 1 || data[13] > 2 || data[14] > OPTION_NUM || data[15] > OPTION_NUM ||
-        !get32(data + 20) || data[26] < 1 || data[26] > 41 || data[27]) return 0;
+        !get32(data + 20) || data[26] < 1 || data[26] > 41 || data[27] > SPECIAL_NUM) return 0;
     episode_tables_select(data[1]);
     valid = data[6] <= SCRIPT_SECTIONS;
     episode_tables_select(old_episode);
@@ -88,6 +88,7 @@ uint8_t password_load(const char *text)
     game_new(data[1], data[3]);
     game.initial_episode = data[2]; game.base_difficulty = data[4]; game.repeated = data[5];
     game.difficulty = data[4] - (data[1] == 4 && data[4] > DIFFICULTY_EASY);
+    p->special_id = data[27];
     p->ship = data[7]; p->generator = data[8]; p->shield_item = data[9];
     p->weapon_id[0] = data[10]; p->weapon_id[1] = data[11];
     p->weapon_power[0] = data[12] & 15; p->weapon_power[1] = data[12] >> 4;

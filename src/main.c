@@ -7,6 +7,7 @@
 #include "game/timing.h"
 #include "game/player.h"
 #include "game/password.h"
+#include "game/special.h"
 #include "game/script.h"
 #include "gen_data/script.h"
 #include "gen_data/episodes.h"
@@ -34,7 +35,7 @@ volatile u8 hash_enabled;
 /* set by tools/bench68k (B68K_LEVEL): play this level (1-based) directly */
 volatile u8 debug_level;
 volatile u8 debug_episode;
-volatile u8 debug_loadout, debug_left_option, debug_right_option, debug_bombs;
+volatile u8 debug_loadout, debug_left_option, debug_right_option, debug_bombs, debug_special;
 /* Headless runner compares a fixed number of ticks, including after death. */
 volatile u8 debug_hold_level, debug_checkpoint;
 
@@ -89,6 +90,7 @@ static u8 play_level(const FlowStep *st)
         game_start_level(st->level);
     }
     if (debug_bombs) players[0].superbombs = debug_bombs <= 10 ? debug_bombs : 10;
+    if (debug_special) special_equip(debug_special);
     level_screen_setup(level_names[st->name]);
     sound_music(st->song);
     while (TRUE) {

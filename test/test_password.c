@@ -23,7 +23,7 @@ int main(void)
         game.initial_episode = 2; game.base_difficulty = DIFFICULTY_ZINGLON; game.repeated = 1;
         script_level_done(5, 0);
         CHECK(script.save_section == 5);
-        p->ship = 13; p->generator = 6; p->shield_item = 10;
+        p->special_id = 13; p->ship = 13; p->generator = 6; p->shield_item = 10;
         p->weapon_id[0] = 42; p->weapon_id[1] = 41;
         p->weapon_power[0] = 11; p->weapon_power[1] = 8; p->weapon_mode = 2;
         p->option_id[0] = 30; p->option_id[1] = 29;
@@ -35,6 +35,7 @@ int main(void)
         CHECK(password_load(code));
         CHECK(LEVEL_EPISODE == ep && game.initial_episode == 2);
         CHECK(game.base_difficulty == DIFFICULTY_ZINGLON && game.initial_difficulty == DIFFICULTY_HARD);
+        CHECK(p->special_id == 13);
         CHECK(p->ship == 13 && p->generator == 6 && p->shield_item == 10);
         CHECK(p->weapon_id[0] == 42 && p->weapon_power[0] == 11 && p->weapon_power[1] == 8);
         CHECK(p->option_id[0] == 30 && p->option_id[1] == 29 && p->weapon_mode == 2);

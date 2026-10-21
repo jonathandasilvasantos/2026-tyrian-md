@@ -6,6 +6,7 @@
 #include "enemy.h"
 #include "rng.h"
 #include "sidekick.h"
+#include "special.h"
 #include "gen_data/items.h"
 #include "gen_data/level.h"
 
@@ -19,6 +20,7 @@ void player_init(void)
     /* JE: New Game Items/Data (mainint.c), playfield entry (tyrian2.c) */
     p->option_id[0] = p->option_id[1] = 0;
     p->orbit_phase = 0;
+    p->special_id = 0;
     p->ship = 1;                 /* USP Talon */
     p->generator = 2;            /* Advanced MR-12 */
     p->weapon_id[FRONT_WEAPON] = 1;   /* Pulse Cannon */
@@ -66,6 +68,7 @@ void player_start_level(void)
     p->mode_button_held = 0;
     p->superbombs = 0;
     sidekicks_init();
+    special_init();
 }
 
 static int16_t iabs(int16_t v) { return v < 0 ? -v : v; }
@@ -168,6 +171,7 @@ void player_tick(uint16_t pad)
     }
 
 
+    special_tick(pad);
     for (bay = 0; bay < 2; bay++) {
         uint16_t item = p->weapon_id[bay];
         if (!item) continue;
@@ -288,7 +292,9 @@ void player_collide(void)
                 p->cash += 100;
                 enemy_avail[z] = EA_FREE;
             } else if (ev > 32100) {
-                p->cash += 250;          /* special weapon: specials not ported yet */
+                p->cash += 250;
+                if (ev - 32100 <= SPECIAL_NUM) special_equip(ev - 32100);
+                game.sound_queue[7] = S_POWERUP;
                 enemy_avail[z] = EA_FREE;
             }
         } else if (ev > 20000) {

@@ -19,6 +19,7 @@
 #include "game/player.h"
 #include "game/shots.h"
 #include "game/enemy.h"
+#include "game/special.h"
 #include "gen_data/sprites.h"
 #include "gen_data/items.h"
 #include "gen_data/shot_shapes.h"
@@ -201,6 +202,30 @@ static inline void put_big(u16 big, s16 x, s16 y)
     n++;
 }
 
+/* Zinglon: cached solid-white tiles, expanded to 8-pixel columns rather
+ * than PC per-pixel brightening. At most 18 sprites, behind enemy bullets. */
+static void draw_zinglon(void)
+{
+    s16 radius, left, y;
+    u16 columns;
+    if (special_state.zinglon <= 1) return;
+    radius = (s16)special_state.zinglon - 25;
+    if (radius < 0) radius = -radius;
+    radius = 25 - radius;
+    left = players[0].x + 7 - radius - 2;
+    columns = (radius * 2 + 5 + 7) >> 3;
+    cur_vx = cur_vy = 0;
+    while (columns) {
+        u16 width = columns > 3 ? 3 : columns;
+        for (y = 0; y < 184; y += 32) {
+            u16 before = n, height = y == 160 ? 3 : 4;
+            put_big(beam_gfx[0], left, y);
+            if (n != before) sp[-1].size_link = (SPRITE_SIZE(width, height) << 8) | n;
+        }
+        left += width * 8; columns -= width;
+    }
+}
+
 static void draw_sidekicks(void)
 {
     const Player *p = &players[0];
@@ -374,6 +399,7 @@ void sprites_update(u16 frac, bool ticked)
     }
     sp = &vdpSpriteCache[n];
     draw_enemy_shots();
+    draw_zinglon();
     draw_sidekicks();
     draw_enemies();
     draw_player_shots();

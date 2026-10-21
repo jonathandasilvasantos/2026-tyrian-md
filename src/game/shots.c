@@ -8,6 +8,7 @@
 #include "player.h"
 #include "enemy.h"
 #include "level.h"
+#include "special.h"
 #include "gen_data/items.h"
 #include "gen_data/shot_shapes.h"
 
@@ -278,7 +279,7 @@ static void build_active(void)
     active_spawns = enemy_spawns;
 }
 
-static int shot_hits(PlayerShot *s)
+static int shot_hits(PlayerShot *s, uint8_t beam)
 {
     int k, b, full = 0;
     int16_t radius_x = 0, radius_y = 0, center_x = s->x;
@@ -297,14 +298,18 @@ static int shot_hits(PlayerShot *s)
         int16_t dmg, armorleft;
         uint8_t link, infinite = 0, do_iced = 0, filter = s->blast_filter;
         int16_t dx;
-        if (!full && (uint16_t)(active_x[k] - center_x + broad_offset) >= broad_width) continue;
+        if (!beam && !full && (uint16_t)(active_x[k] - center_x + broad_offset) >= broad_width) continue;
         b = full ? b + 1 : active[k];
         if (enemy_avail[b] != EA_ACTIVE) continue;
         e = &enemies[b];
         dx = iabs16(e->ex + e->mapoffset - center_x);
-        if (!((e->enemycycle == 0 && dx < 25 + radius_x && iabs16(e->ey - s->y - 12 - radius_y) < 29 + radius_y) ||
-              (e->enemycycle > 0 && dx < 13 + radius_x && iabs16(e->ey - s->y - 6 - radius_y) < 15 + radius_y)))
+        if (beam) {
+            int16_t width = 25 - iabs16(special_state.zinglon - 25);
+            if (dx >= width) continue;
+        } else if (!((e->enemycycle == 0 && dx < 25 + radius_x && iabs16(e->ey - s->y - 12 - radius_y) < 29 + radius_y) ||
+                     (e->enemycycle > 0 && dx < 13 + radius_x && iabs16(e->ey - s->y - 6 - radius_y) < 15 + radius_y))) {
             continue;
+        }
         if (s->chain > 0) {
             players[s->player - 1].shot_multi_pos[SHOT_MISC] = 0;
             shot_create(0, SHOT_MISC, s->x, s->y, s->chain, s->player);
@@ -334,7 +339,7 @@ static int shot_hits(PlayerShot *s)
         {
             uint16_t sp = enemy_spawns;
         if (armorleft > dmg) {
-            if (e->armorleft != 255) {
+            if (!beam && e->armorleft != 255) {
                 e->armorleft -= (uint8_t)dmg;
                 explosion_setup(s->x, s->y, 0, 0, 0, 0);
             }
@@ -351,7 +356,7 @@ static int shot_hits(PlayerShot *s)
         }
         if (infinite) {
             dmg += 250;
-        } else {
+        } else if (!beam) {
             if (dmg <= armorleft) return 0;
             s->dmg -= armorleft;
         }
@@ -422,7 +427,15 @@ void shots_move(void)
         s->frame = s->gr + s->ani;
         if (s->frame > 1000 && s->frame <= 60000) s->frame %= 1000;
         if (++s->ani == s->ani_max) s->ani = 0;
-        if (!shot_hits(s)) s->avail = 0;
+        if (!shot_hits(s, 0)) s->avail = 0;
     }
+    if (special_state.pulse) {
+        PlayerShot beam = {0};
+        beam.x = players[0].x + 7; beam.dmg = 10; beam.player = 1;
+        beam.blast_filter = 9;
+        shot_hits(&beam, 1);
+        special_state.pulse = 0;
+    }
+
 }
 

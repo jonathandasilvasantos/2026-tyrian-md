@@ -12,7 +12,7 @@ source as the behavioral reference.
 with episode selection and campaign progression that preserves equipment
 and cash. `EPISODE=1..4` sets the menu default and benchmark episode. The engine includes episode
 scripts, shops and destination choice, enemies and level events, front/rear
-weapons, superbombs and asteroid-killer pickups, the 30 sidekicks (shop, movement, charge/ammo, HUD), generator power, HUD, the 41 songs converted to YM2612/PSG, sound
+weapons, equipped story specials (types 1–11), superbombs and asteroid-killer pickups, the 30 sidekicks (shop, movement, charge/ammo, HUD), generator power, HUD, the 41 songs converted to YM2612/PSG, sound
 effects and voices. Story starting funds follow the original episode; episode 4 also applies
 the original difficulty reduction. Six story difficulty choices, enemy scaling,
 score-based difficulty progression, START pause and shop checkpoint passwords
@@ -24,7 +24,8 @@ PAL. Both regions run the same 35 Hz simulation. Full campaigns,
 visual accuracy and hardware timing still need validation; dense scenes can
 slow down. See `agents.md` §8 for deviations and §9 for budgets.
 
-Still required: text screens and data cubes, special weapons, the third
+Still required: text screens and data cubes, combo specials and special
+palette/Astral-background effects, the third
 (top) background layer, and the remaining OpenTyrian modes/features. The
 ROM uses the official Sega SSF2 mapper; code, tables and audio stay in the
 fixed lower 3.5 MB, while DMA maps graphics through the upper 512 KB.
@@ -90,7 +91,9 @@ make bench-levels  # frames used per level (manual, minutes)
 
 `make parity-sidekicks` checks six companion loadouts, including charge,
 finite ammo, orbiting satellites, both companion sprite sizes and Plasma
-Storm's large artwork/collision bounds, plus two superbomb replays. The player/bullet palette stays
+Storm's large artwork/collision bounds, plus two superbomb replays.
+`make parity-specials` checks eight special loadouts in PAL and NTSC through
+`make test`; their cooldown, pulse, flare and projectile states are hashed. The player/bullet palette stays
 identical across the four episodes.
 
 `make parity` runs the ROM headless on a 68000 emulator (Musashi) and checks it

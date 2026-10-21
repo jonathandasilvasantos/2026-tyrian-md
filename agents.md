@@ -125,7 +125,7 @@ what changed, why, worst-case visible difference. Approved directions:
   PSG for simple blips. Sample rates reduced to fit ROM.
 - **Scope**: all episodes and features present in OpenTyrian are the target
   (user request, 2026-10-21). Start with episodes 1–4 from Tyrian 2.1 data;
-  specials, text screens and the third background layer remain
+  combo specials, special palette effects, text screens and the third background layer remain
   required; shop checkpoints use passwords; sidekicks and all four episode flows are implemented. Two-player mode, Destruct, networking, jukebox and
   setup/config screens come later. Additional data-dependent content needs
   its original data source; do not invent missing content.
@@ -225,7 +225,7 @@ Every intentional difference from OpenTyrian, one line each:
   other enemies, items and explosions share palette line 3.
 - Enemies — single player, story mode; "lives" for
   event 33 is the front weapon power, as on the PC; arcade/2-player items
-  (evalue > 30000) give only their cash; specials, data cube
+  (evalue > 30000) give only their cash, except equipped story-special pickups; data cube
   text and enemy filters not ported yet; explosion cap 64
   (PC 200); event 12's self-modification tracked for 16 events.
 - Flow — the episode script is compiled to bytecode (tools/tyrdata/
@@ -240,13 +240,24 @@ Every intentional difference from OpenTyrian, one line each:
   float32 in the converter — avoid floating point at runtime — no gameplay
   rule difference. Temporary event changes reset at level boundaries; episode
   4 retains its one-step reduction.
+- Equipped specials — story types 1–11 use the PC projectiles, repulsor,
+  attractor, flare durations/frequencies, linked firing, waits and primary-fire
+  edge trigger; 47 data records are converted — portable simulation — combo
+  activation/types 12–18 and palette/Astral-background effects remain pending.
+  HUD uses a six-character name and readiness text instead of the PC icon.
+- Zinglon — beam uses a cached white block and at most 18 sprites, rounded
+  to 8-pixel columns, behind enemy bullets — no framebuffer brightening — solid
+  white with up to seven extra visual pixels; original pulse interval, strict X
+  collision and the PC behavior of killing <=10 HP without chipping stronger
+  targets are preserved. Beam collision does not use a player-shot slot.
 - Saves — versioned 48-character base32 passwords at shops, CRC16-CCITT
   validation before replacing state, section checkpoint matching JE_saveGame;
   equipment, cash, chosen/current difficulty, episode history and RNG preserved —
   SSF2 ROM occupies the usual SRAM address range — manual transcription replaces
   disk slots/automatic backups. Title menu offers Continue; C in a shop shows
   the password. Level-local bombs, health and shot cooldowns reset on entry, as
-  on PC. The format reserves a byte for special equipment still to be ported.
+  on PC. The equipment byte also preserves the equipped special; older version-1
+  passwords with zero in that byte remain valid.
 - Pause — START freezes simulation and halves music volume, START resumes;
   the pause banner uses the HUD bottom bar instead of the PC center — preserve
   the playfield without reserving extra tiles — different banner position.
@@ -309,13 +320,14 @@ Fill and keep current.
     sprite piece of the level), shot collision lists ~300.
   - total .bss depends on the episode: episode 1 34,372 bytes; episode 2
     34,980; episode 3 34,364; episode 4 30,124 (historical separate builds).
-    Unified cartridge with sidekicks: .bss 36,188 bytes + .data 90; active table pointers
-    169 bytes, two campaign-state bytes, dynamic sprite-slot count 2 bytes,
+    Unified cartridge with sidekicks: .bss 36,252 bytes + .data 90; active table pointers
+    181 bytes, two campaign-state bytes, dynamic sprite-slot count 2 bytes,
     PAL sprite velocity scale 2 bytes; HUD text uses a 32-bit tick deadline.
     `Player`: 20 pairs of 16-bit history coordinates, two 20-byte companion
     states, option IDs, 32-bit orbit phase, attachment state, all 11 PC shot
     cooldown/multiposition bays. The level-start Player checkpoint is static
     instead of a large stack local (Player and checkpoint: 202 bytes each).
+    Special runtime: 16 bytes; special HUD cache: 2 bytes; replay special ID: 1 byte.
     Sidekick HUD state cache: 4 bytes; pause message pointer: 4 bytes;
     campaign difficulty baseline: 1 byte (plus alignment);
     replay loadout controls: 4 bytes; checkpoint replay flag: 1 byte (fits alignment); superbomb HUD cache: 1 byte.
@@ -337,7 +349,7 @@ Fill and keep current.
 - Entity caps: enemies 100, enemy shots 60, player shots 64, explosions 64.
 - ROM: unified cartridge (2026-10-21): fixed .text ~3.24 MB,
   initial .data 90; far graphics and extra option/weapon frames bring the used physical ROM
-  end to 7,283,609 bytes, padded to 8 MB (86%). Password codec/UI add ~5.9 KB of code/tables. The fixed region still has ~348 KB
+  end to 7,310,720 bytes, padded to 8 MB (86%). Password codec/UI add ~5.9 KB of code/tables. The fixed region still has ~340 KB
   of headroom. The shipped SGDK math source is
   recompiled with function sections (read-only include); garbage collection
   removes ~393 KB of unused log/sqrt tables and other unused math routines.
@@ -367,6 +379,10 @@ Fill and keep current.
   (bottom 4 px of tile A + top 4 px of tile B) for each vertical pair that
   occurs (max 515 pairs per layer). Maps stay in tile units.
 - Worst frame (cycles): (level — cycles — date)
+  - episode 1, Zinglon equipped, 600-tick replay: avg busy 72,032 / max
+    127,856 cycles, two frames without idle, 1,284-byte stack; maximum loop
+    work 153,164 cycles. Opening smoke profile, not a worst-case guarantee
+    (2026-10-21).
   - episode 1, ten superbombs, 600-tick sidekick-button replay: avg busy
     73,344 / max 127,856 cycles, two frames without idle, 1,240-byte stack.
     Loop work peaks at 153,840 cycles; slowdown remains (2026-10-21).
@@ -429,7 +445,7 @@ Fill and keep current.
   Plasma Storm loadout for large projectile artwork/collision; `game_hash`
   includes superbomb stock/cooldown and charge, ammo, movement history, orbit and attachment state when
   sidekicks are equipped.
-  Two ten-bomb replays also run in both regions. Checkpoint replays on the
+  Two ten-bomb and eight equipped-special replays also run in both regions. Checkpoint replays on the
   68000 encode/load the opening state of each episode, then must match the
   independent host and existing goldens in both regions. Host checkpoint tests
   cover every symbol position for transcription rejection without state changes.
