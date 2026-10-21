@@ -93,9 +93,10 @@ void level_init(void)
     game.level_end = 255;
     game.level_end_warp = -4;
     game.armor_ship_delay = 50;
+    game.warning_sound_delay = 0;
     game.enemy_killed = game.total_enemy = game.cube_max = 0;
     game.boss_link[0] = game.boss_link[1] = 0;
-    game.level_timer = 0;
+    game.level_timer = game.timer_phase100 = game.timer_phase20 = 0;
     game.level_timer_countdown = 0;
     for (l = 0; l < 10; l++) game.global_flags[l] = 0;
     ev12_count = 0;
@@ -581,6 +582,7 @@ static void event_system(void)
     case 67:
         game.level_timer = ev->dat == 1;
         game.level_timer_countdown = (uint16_t)(ev->dat3 * 100);
+        game.timer_phase100 = game.timer_phase20 = 0;
         game.level_timer_jump_to = (uint16_t)ev->dat2;
         break;
     case 68: game.random_explosions = ev->dat == 1; break;

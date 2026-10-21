@@ -154,6 +154,17 @@ void game_step(uint16_t pad)
             }
             game.armor_ship_delay = 500;
         }
+        /* Original warning rhythm tightens as armor falls; it pauses while
+         * healthy/dead rather than resetting the retained delay. */
+        {
+            uint8_t period = p->armor * 4 + 8;
+            if (game.warning_sound_delay > period) game.warning_sound_delay = period;
+            if (game.warning_sound_delay > 1) game.warning_sound_delay--;
+            else {
+                game.sound_queue[7] = S_WARNING;
+                game.warning_sound_delay = period;
+            }
+        }
     }
     if (game.return_active && game.enemy_on_screen == 0) {
         level_event_jump(65535);
@@ -161,6 +172,14 @@ void game_step(uint16_t pad)
     }
     if (game.level_timer && game.level_timer_countdown > 0) {
         if (--game.level_timer_countdown == 0) level_event_jump(game.level_timer_jump_to);
+        /* Event 67 starts at a multiple of 100; tiny phase counters keep
+         * the original modulo rhythm without division on the 68000. */
+        game.timer_phase100 = game.timer_phase100 ? game.timer_phase100 - 1 : 99;
+        game.timer_phase20 = game.timer_phase20 ? game.timer_phase20 - 1 : 19;
+        if (game.level_timer_countdown > 200) {
+            if (!game.timer_phase100) game.sound_queue[7] = S_WARNING;
+            if (!game.timer_phase20 || game.timer_phase20 == 10) game.sound_queue[6] = S_CLICK;
+        } else if (!game.timer_phase20) game.sound_queue[7] = S_WARNING;
     }
     if (game.random_explosions && rng_mod(10) == 1)
         explosion_setup_large(0, 20, rng_mod(280), rng_mod(180));
@@ -257,6 +276,11 @@ uint32_t game_hash(void)
             h = mix(h, (uint8_t)s->dx | (uint16_t)(uint8_t)s->dy << 8);
         }
     }
+    if (game.level_timer) {
+        h = mix(h, 0xAB000000u | game.level_timer_countdown);
+        h = mix(h, game.timer_phase100 | (uint16_t)game.timer_phase20 << 8);
+    }
+    if (game.warning_sound_delay) h = mix(h, 0xAA000000u | game.warning_sound_delay);
     if (game.music_fade || game.music_volume != 255)
         h = mix(h, 0xA0000000u | game.music_volume | (uint32_t)game.music_fade << 8);
     if (game.bonus_section || game.music_track)

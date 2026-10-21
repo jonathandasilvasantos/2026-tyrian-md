@@ -236,6 +236,42 @@ static void test_music_and_invulnerability_events(void)
     CHECK(game.music_track == 10 && !game.music_fade && game.music_volume == 99);
 }
 
+
+static void test_warning_cadence(void)
+{
+    unsigned i;
+    game_new(1, DIFFICULTY_NORMAL); game_start_level(LEVEL_FIRST);
+    players[0].armor = 5;
+    game_step(0);
+    CHECK(game.warning_sound_delay == 28 && game.sound_queue[7] == S_WARNING);
+    for (i = 0; i < 27; i++) {
+        game.sound_queue[7] = 0;
+        game_step(0); CHECK(!game.sound_queue[7]);
+    }
+    CHECK(game.warning_sound_delay == 1);
+    game_step(0); CHECK(game.warning_sound_delay == 28 && game.sound_queue[7] == S_WARNING);
+    players[0].armor = 3; game.sound_queue[7] = 0;
+    game_step(0); CHECK(game.warning_sound_delay == 19 && !game.sound_queue[7]);
+    players[0].armor = 6;
+    game_step(0); CHECK(game.warning_sound_delay == 19);
+    players[0].is_alive = 0;
+    game_step(0); CHECK(game.warning_sound_delay == 19);
+    game_start_level(LEVEL_FIRST); CHECK(!game.warning_sound_delay);
+    game.level_timer = 1; game.level_timer_jump_to = 1;
+    { static const uint16_t start[] = {301, 300, 211, 201, 21, 2, 1};
+      static const uint8_t warning[] = {17, 0, 0, 17, 17, 0, 17};
+      static const uint8_t click[] = {24, 0, 24, 0, 0, 0, 0};
+      for (i = 0; i < sizeof(start) / sizeof(start[0]); i++) {
+          game.level_timer_countdown = start[i];
+          game.timer_phase100 = start[i] % 100; game.timer_phase20 = start[i] % 20;
+          game.sound_queue[6] = game.sound_queue[7] = 0;
+          game_step(0);
+          CHECK(game.level_timer_countdown == start[i] - 1);
+          CHECK(game.sound_queue[6] == click[i] && game.sound_queue[7] == warning[i]);
+      }
+    }
+}
+
 int main(void)
 {
     uint8_t episode;
@@ -243,6 +279,7 @@ int main(void)
     test_buddy();
     test_bonus_navigation();
     test_music_and_invulnerability_events();
+    test_warning_cadence();
     for (episode = 1; episode <= 4; episode++) {
         Player *p = &players[0];
         unsigned i;

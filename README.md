@@ -23,7 +23,8 @@ the GALAGA lives/bonus-checkpoint loop and pickup-linked second ship
 (rotating gun, charge shots, armor and bombs) are also ported. Purple balls
 use the original per-power collection thresholds. Bonus portals preserve their
 original destination/music, and bonus stages advance after death. Level events
-now change/fade music and preserve 16-bit invulnerability durations.
+now change/fade music and preserve 16-bit invulnerability durations. Low-armor
+warning cadence and level-timer display/sounds follow the original rules.
 
 Validation covers script references for every episode, host unit tests and
 600-tick ROM/host replays at each episode's opening level on both NTSC and

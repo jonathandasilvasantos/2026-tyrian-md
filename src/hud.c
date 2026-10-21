@@ -25,6 +25,8 @@ static u16 shown_special;
 static u8 shown_armor, shown_shield, shown_power, shown_front, shown_rear, dirty;
 static const char *current_message; /* ROM text, retained while paused */
 static u32 text_until; /* game tick deadline, independent of redraw rate */
+static u16 shown_timer;
+static const char *current_level_name;
 static u16 shown_boss;           /* armor shown on the boss bar + 1, 0 = hidden */
 
 static void put_text(u16 x, u16 y, const char *s, u16 w)
@@ -88,8 +90,8 @@ void hud_init(u16 first_tile, const char *level_name)
     put_text(COL0, 13, "FRONT", 6);
     put_text(COL0, 16, "REAR", 6);
     put_text(COL0, 19, "OPTION", 6);
-    put_text(COL0, 23, level_name, 6);
-    put_text(COL0, 24, strlen(level_name) > 6 ? level_name + 6 : "", 6);
+    current_level_name = level_name;
+    shown_timer = 0xFFFE;
     dirty = 1;
     text_until = 0;
     current_message = "";
@@ -154,6 +156,7 @@ void hud_update(void)
     if (dirty || p->armor != shown_armor) {
         shown_armor = p->armor;
         put_bar(5, p->armor, 28, 0);
+        put_text(COL0, 4, p->armor < 6 ? "ARMOR!" : "ARMOR", 6);
     }
     if (dirty || p->shield != shown_shield) {
         shown_shield = p->shield;
@@ -212,6 +215,21 @@ void hud_update(void)
         memcpy(buf, "BOMB", 4);
         num(buf + 4, shown_bombs, 2);
         put_text(COL0, 22, buf, 6);
+    }
+    {
+        u16 timer = game.level_timer ? game.level_timer_countdown / 10 : 0xFFFF;
+        if (dirty || timer != shown_timer) {
+            shown_timer = timer;
+            if (game.level_timer) {
+                put_text(COL0, 23, "TIME", 6);
+                num(buf, timer / 10, 3);
+                buf[3] = '.'; buf[4] = '0' + timer % 10; buf[5] = 0;
+                put_text(COL0, 24, buf, 6);
+            } else {
+                put_text(COL0, 23, current_level_name, 6);
+                put_text(COL0, 24, strlen(current_level_name) > 6 ? current_level_name + 6 : "", 6);
+            }
+        }
     }
     if (game.window_text) {   /* JE_drawTextWindow: textErase = 100 game ticks */
         hud_message(window_texts[game.window_text - 1]);

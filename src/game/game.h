@@ -36,6 +36,7 @@
 #define S_EXPLOSION_9 9
 #define S_EXPLOSION_11 11
 #define S_WARNING 17
+#define S_CLICK 24
 #define S_ITEM 18
 #define S_HULL_HIT 19
 #define S_EXPLOSION_22 22
@@ -93,11 +94,12 @@ typedef struct {
     uint8_t end_level, ready_to_end_level, really_end_level, level_end;
     int8_t level_end_warp;
     uint16_t armor_ship_delay;
+    uint8_t warning_sound_delay;
     uint16_t enemy_killed, total_enemy, cube_max;
     uint8_t custom_armor;     /* events 49-52 write enemyDat[0] (ROM here) */
     uint16_t custom_egr;
     uint8_t boss_link[2];
-    uint8_t level_timer;
+    uint8_t level_timer, timer_phase100, timer_phase20;
     uint8_t music_volume, music_fade; /* PC tempVolume/musicFade, fixed maximum 255 */
     uint8_t bonus_section, bonus_display, music_track; /* pickup destination, 150-tick notice, 1-based song */
     uint8_t sound_queue[8];
