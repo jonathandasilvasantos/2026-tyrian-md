@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Compare host/68000 replay cases, optionally recording verified goldens.
 
-Manifest rows: episode hash, or episode left-sidekick right-sidekick hash.
+Manifest rows: episode hash, or episode left-sidekick right-sidekick [bombs] hash.
 Recording requires both implementations to agree; normal checks never write.
 """
 import argparse
@@ -25,15 +25,19 @@ def check(manifest, replay, record=False, ticks=600):
         if not line.strip() or line.startswith("#"):
             continue
         fields = line.split()
-        if len(fields) not in (2, 4):
-            raise ValueError(f"{manifest}:{index + 1}: expected episode [left right] hash")
+        if len(fields) not in (2, 4, 5):
+            raise ValueError(f"{manifest}:{index + 1}: expected episode [left right [bombs]] hash")
         episode, expected = fields[0], fields[-1]
-        loadout = fields[1:3] if len(fields) == 4 else []
+        loadout = fields[1:3] if len(fields) >= 4 else []
         env = dict(os.environ, B68K_EPISODE=episode)
         env.pop("B68K_OPTIONS", None)
+        env.pop("B68K_BOMBS", None)
+        bombs = [fields[3]] if len(fields) == 5 else []
+        if bombs:
+            env["B68K_BOMBS"] = bombs[0]
         if loadout:
             env["B68K_OPTIONS"] = ",".join(loadout)
-        host = state_hash(["out/tyrian_host", str(ticks), replay, episode, *loadout], env)
+        host = state_hash(["out/tyrian_host", str(ticks), replay, episode, *loadout, *bombs], env)
         rom = state_hash(["out/bench68k", "out/rom.bin", "out/rom.syms", str(ticks), replay], env)
         if host != rom:
             raise ValueError(f"episode {episode} options {loadout}: host {host}, ROM {rom}")

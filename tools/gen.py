@@ -530,12 +530,14 @@ def gen_sprites(out, it, lvls, bg_pals):
             ship_imgs.append(img[:32])
 
     wids = {w for p in it["ports"][1:] for m in p["op"] for w in m}
+    wids |= {104, 535}  # orbiting asteroid killer pickup / superbomb
     wids |= {o["wpnum"] + charge for o in it["options"][1:] for charge in range(o["pwr"] + 1)}
     def level_banks(lvl):
         return {d for e in lvl.events if e.type == 5 for d in (e.dat, e.dat2, e.dat3, e.dat4) if 0 < d <= 34}
     banks = sorted(set().union(*(level_banks(lv) for lv in lvls)))
     enemy_ids = set(range(len(it["enemies"])))   # any enemy can be spawned by events / deaths
     wids |= {t for i in enemy_ids for t in it["enemies"][i]["tur"] if 0 < t < 252}
+    wids = items.weapon_dependencies(it, wids)
     frames = sorted(weapon_frames(it, wids))
 
     gfx, pal_of = [], []                         # pieces in id order, palette set

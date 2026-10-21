@@ -12,9 +12,10 @@ source as the behavioral reference.
 with episode selection and campaign progression that preserves equipment
 and cash. `EPISODE=1..4` sets the menu default and benchmark episode. The engine includes episode
 scripts, shops and destination choice, enemies and level events, front/rear
-weapons, the 30 sidekicks (shop, movement, charge/ammo, HUD), generator power, HUD, the 41 songs converted to YM2612/PSG, sound
+weapons, superbombs and asteroid-killer pickups, the 30 sidekicks (shop, movement, charge/ammo, HUD), generator power, HUD, the 41 songs converted to YM2612/PSG, sound
 effects and voices. Story starting funds follow the original episode; episode 4 also applies
-the original difficulty reduction.
+the original difficulty reduction. Six story difficulty choices, enemy scaling,
+score-based difficulty progression and START pause are implemented.
 
 Validation covers script references for every episode, host unit tests and
 600-tick ROM/host replays at each episode's opening level on both NTSC and
@@ -57,7 +58,8 @@ Controls: B fires the equipped weapons and infinite-ammo sidekicks, C
 changes rear weapon mode, A fires the left limited-ammo sidekick, and Z
 fires the right one on a 6-button pad. On a 3-button pad A fires both
 limited-ammo sidekicks. Z (A on a 3-button pad) launches/recalls the right
-front-mounted attachment. The old weapon/power debug shortcuts are removed.
+front-mounted attachment. A/Z also release held superbombs; START pauses
+and resumes. The old weapon/power debug shortcuts are removed.
 
 ## Layout
 
@@ -83,7 +85,7 @@ make bench-levels  # frames used per level (manual, minutes)
 
 `make parity-sidekicks` checks six companion loadouts, including charge,
 finite ammo, orbiting satellites, both companion sprite sizes and Plasma
-Storm's large artwork/collision bounds. The player/bullet palette stays
+Storm's large artwork/collision bounds, plus two superbomb replays. The player/bullet palette stays
 identical across the four episodes.
 
 `make parity` runs the ROM headless on a 68000 emulator (Musashi) and checks it

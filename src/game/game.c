@@ -187,6 +187,8 @@ uint32_t game_hash(void)
     h = mix(h, p->weapon_id[0] | (uint32_t)p->weapon_id[1] << 16);
     h = mix(h, p->weapon_power[0] | p->weapon_power[1] << 8 | (uint32_t)p->weapon_mode << 16);
     h = mix(h, p->armor | p->shield << 8 | (uint32_t)p->is_alive << 16);
+    if (p->superbombs || p->shot_repeat[SHOT_SUPERBOMB] != 1)
+        h = mix(h, p->superbombs | (uint32_t)p->shot_repeat[SHOT_SUPERBOMB] << 8);
     if (p->option_id[0] || p->option_id[1]) {
         h = mix(h, p->orbit_phase);
         h = mix(h, (uint16_t)p->attachment_move | (uint32_t)p->attachment_linked << 16 | (uint32_t)p->attachment_return << 24);

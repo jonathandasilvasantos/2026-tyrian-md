@@ -200,6 +200,36 @@ static void test_enemy_difficulty(void)
     CHECK(id <= ENEMY_NUM);
 }
 
+static void test_bomb_pickups(void)
+{
+    Enemy *e;
+    unsigned i;
+    test_init();
+    enemies_init();
+    players[0].x = 100; players[0].y = 100;
+    e = &enemies[0];
+    for (i = 0; i < 12; i++) {
+        enemy_avail[0] = EA_ITEM;
+        e->ex = 100; e->ey = 100; e->mapoffset = 0;
+        e->evalue = -4; e->scoreitem = 1; e->enemytype = 1;
+        player_collide();
+    }
+    CHECK(players[0].superbombs == 10 && enemy_avail[0] == EA_FREE);
+    game.power = 900;
+    player_tick(PAD_A); /* initial cooldown 1 -> 0, no shot yet */
+    CHECK(players[0].superbombs == 10);
+    player_tick(PAD_A);
+    CHECK(players[0].superbombs == 9 && live_shots() > 0);
+    CHECK(players[0].shot_repeat[SHOT_SUPERBOMB] == weapons[535].shotrepeat);
+    shots_init();
+    enemy_avail[0] = EA_ITEM;
+    e->evalue = -3;
+    player_collide();
+    CHECK(enemy_avail[0] == EA_FREE && live_shots() > 0);
+    game_start_level(LEVEL_FIRST);
+    CHECK(players[0].superbombs == 0);
+}
+
 static void test_episode_transition(void)
 {
     unsigned ep;
@@ -366,6 +396,7 @@ int main(void)
         test_shop_trade_in();
         test_difficulty_progression();
         test_enemy_difficulty();
+        test_bomb_pickups();
         test_sidekick_shop();
         test_sidekick_charge_and_ammo();
         test_sidekick_movement();

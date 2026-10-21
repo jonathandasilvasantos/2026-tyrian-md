@@ -33,7 +33,7 @@ volatile u8 hash_enabled;
 /* set by tools/bench68k (B68K_LEVEL): play this level (1-based) directly */
 volatile u8 debug_level;
 volatile u8 debug_episode;
-volatile u8 debug_loadout, debug_left_option, debug_right_option;
+volatile u8 debug_loadout, debug_left_option, debug_right_option, debug_bombs;
 /* Headless runner compares a fixed number of ticks, including after death. */
 volatile u8 debug_hold_level;
 
@@ -79,6 +79,7 @@ static u8 play_level(const FlowStep *st)
         players[0].option_id[1] = debug_right_option <= OPTION_NUM ? debug_right_option : 0;
     }
     game_start_level(st->level);
+    if (debug_bombs) players[0].superbombs = debug_bombs <= 10 ? debug_bombs : 10;
     level_screen_setup(level_names[st->name]);
     sound_music(st->song);
     while (TRUE) {

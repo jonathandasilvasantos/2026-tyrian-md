@@ -84,3 +84,16 @@ def load_items(episode=1):
     with open(data_path("tyrian.hdt"), "rb") as f:
         data = f.read()
     return read_items(data, Reader(data).u32())
+
+
+def weapon_dependencies(it, weapon_ids):
+    """Include impact-chain weapons (attack 100..249), once even in cycles."""
+    used = set()
+    pending = list(weapon_ids)
+    while pending:
+        wid = pending.pop()
+        if wid in used or not 0 < wid < len(it["weapons"]):
+            continue
+        used.add(wid)
+        pending.extend(attack - 100 for attack in it["weapons"][wid]["attack"] if 100 < attack < 250)
+    return used

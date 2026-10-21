@@ -17,6 +17,7 @@
 static u16 bar_tile, solid_tile;
 static u32 shown_cash;
 static u16 shown_option[2];
+static u8 shown_bombs;
 static u8 shown_armor, shown_shield, shown_power, shown_front, shown_rear, dirty;
 static const char *current_message; /* ROM text, retained while paused */
 static u32 text_until; /* game tick deadline, independent of redraw rate */
@@ -189,6 +190,12 @@ void hud_update(void)
                 put_text(COL0, 20 + i, buf, 6);
             }
         }
+    }
+    if (dirty || shown_bombs != p->superbombs) {
+        shown_bombs = p->superbombs;
+        memcpy(buf, "BOMB", 4);
+        num(buf + 4, shown_bombs, 2);
+        put_text(COL0, 22, buf, 6);
     }
     if (game.window_text) {   /* JE_drawTextWindow: textErase = 100 game ticks */
         hud_message(window_texts[game.window_text - 1]);

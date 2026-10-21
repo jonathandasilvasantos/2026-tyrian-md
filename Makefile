@@ -162,6 +162,7 @@ parity-episodes: out/bench68k out/rom.syms out/tyrian_host
 
 parity-sidekicks: out/bench68k out/rom.syms out/tyrian_host
 	@python3 tools/check_replays.py test/replays/sidekicks.hashes test/replays/sidekicks.txt
+	@python3 tools/check_replays.py test/replays/bombs.hashes test/replays/sidekicks.txt
 
 parity-pal: out/bench68k out/rom.syms out/tyrian_host
 	@echo "   PAL replay checks"

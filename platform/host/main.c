@@ -1,7 +1,7 @@
 /* Host build of src/game: runs a pad replay headless and prints the state
  * hash, so the same replay can be compared with the ROM (agents.md §5).
  *
- * Usage: tyrian_host [frames] [replay.txt] [episode] [left-option] [right-option]
+ * Usage: tyrian_host [frames] [replay.txt] [episode] [left-option] [right-option] [bombs]
  *   replay lines: "<frame> <pad hex>"  (pad held from that frame on)
  */
 #include <stdio.h>
@@ -31,6 +31,11 @@ int main(int argc, char **argv)
         players[0].option_id[0] = left;
         players[0].option_id[1] = right;
         game_start_level(LEVEL_FIRST);
+    }
+    if (argc > 6) {
+        int bombs = atoi(argv[6]);
+        if (bombs < 0 || bombs > 10) return 2;
+        players[0].superbombs = bombs;
     }
     for (f = 0; f < frames; f++) {
         char line[128];

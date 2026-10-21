@@ -10,6 +10,7 @@
 #define SHOT_LEFT_SIDEKICK 2
 #define SHOT_RIGHT_SIDEKICK 3
 #define SHOT_MISC 4
+#define SHOT_SUPERBOMB 6
 #define SHOT_BAYS 11
 
 typedef struct {
@@ -40,7 +41,7 @@ typedef struct {
     uint8_t weapon_mode;           /* rear mode 1..opnum */
     uint8_t shot_repeat[SHOT_BAYS];
     uint8_t shot_multi_pos[SHOT_BAYS];
-    uint8_t mode_button_held;
+    uint8_t mode_button_held, superbombs;
     uint8_t is_alive, exploding_ticks;
     uint8_t armor, initial_armor, shield, shield_max, shield_item;
     uint8_t invulnerable_ticks;

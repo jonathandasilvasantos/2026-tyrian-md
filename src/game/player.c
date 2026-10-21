@@ -64,6 +64,7 @@ void player_start_level(void)
     p->is_alive = 1;
     p->exploding_ticks = 0;
     p->mode_button_held = 0;
+    p->superbombs = 0;
     sidekicks_init();
 }
 
@@ -176,6 +177,16 @@ void player_tick(uint16_t pad)
             uint8_t mode = bay == REAR_WEAPON ? p->weapon_mode - 1 : 0;
             shot_create(item, (uint8_t)bay, p->x, p->y,
                         weapon_ports[item].op[mode][p->weapon_power[bay] - 1], 1);
+        }
+    }
+    /* JE_playerMovement: bomb cooldown runs only while bombs are held.
+     * The PC sidekick buttons also release bombs; A/Z retain that pairing. */
+    if (p->superbombs) {
+        if (p->shot_repeat[SHOT_SUPERBOMB]) p->shot_repeat[SHOT_SUPERBOMB]--;
+        else if (pad & (PAD_A | PAD_Z)) {
+            p->superbombs--;
+            p->shot_multi_pos[SHOT_SUPERBOMB] = 0;
+            shot_create(16, SHOT_SUPERBOMB, p->x, p->y, 535, 1);
         }
     }
     sidekicks_tick(pad);
@@ -299,8 +310,11 @@ void player_collide(void)
             else if (ev == -3) {
                 p->shot_multi_pos[SHOT_MISC] = 0;
                 shot_create(0, SHOT_MISC, p->x, p->y, 104, 1);
+            } else if (ev == -3) {
+                p->shot_multi_pos[SHOT_MISC] = 0;
+                shot_create(0, SHOT_MISC, p->x, p->y, 104, 1);
             } else if (ev == -4) {
-                /* superbomb: not ported */
+                if (p->superbombs < 10) p->superbombs++;
             } else if (ev == -5) {
                 p->weapon_id[FRONT_WEAPON] = 25;   /* HOT DOG! */
                 p->weapon_id[REAR_WEAPON] = 26;

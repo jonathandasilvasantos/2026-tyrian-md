@@ -197,6 +197,11 @@ Every intentional difference from OpenTyrian, one line each:
   a 1024-entry radius-20 pixel LUT instead of float sin/cos — integer-only
   68000 hot path — orbit phase differs from the PC's accumulated floats on
   long runs. Ammo and charge use text readouts instead of icon/gauge art.
+- Superbombs — original ten-bomb cap, weapon 535, cooldown and level-start
+  reset; A/Z share the PC sidekick-button trigger; bomb count is text in the
+  HUD instead of icons — pad/window-plane layout — different counter art.
+  The orbiting asteroid-killer pickup fires original weapon 104. Impact-chain
+  projectile graphics are included recursively by the converter.
 - Special projectile art — OPTION_SHAPES frames are split into cached
   24x32 hardware sprites with the original width/height collision radii —
   VDP limits and no framebuffer — source transparency is preserved, but the
@@ -220,7 +225,7 @@ Every intentional difference from OpenTyrian, one line each:
   other enemies, items and explosions share palette line 3.
 - Enemies — single player, story mode; "lives" for
   event 33 is the front weapon power, as on the PC; arcade/2-player items
-  (evalue > 30000) give only their cash; specials, superbombs, data cube
+  (evalue > 30000) give only their cash; specials, data cube
   text and enemy filters not ported yet; explosion cap 64
   (PC 200); event 12's self-modification tracked for 16 events.
 - Flow — the episode script is compiled to bytecode (tools/tyrdata/
@@ -298,16 +303,16 @@ Fill and keep current.
     sprite piece of the level), shot collision lists ~300.
   - total .bss depends on the episode: episode 1 34,372 bytes; episode 2
     34,980; episode 3 34,364; episode 4 30,124 (historical separate builds).
-    Unified cartridge with sidekicks: .bss 36,148 bytes + .data 90; active table pointers
+    Unified cartridge with sidekicks: .bss 36,188 bytes + .data 90; active table pointers
     169 bytes, two campaign-state bytes, dynamic sprite-slot count 2 bytes,
     PAL sprite velocity scale 2 bytes; HUD text uses a 32-bit tick deadline.
     `Player`: 20 pairs of 16-bit history coordinates, two 20-byte companion
     states, option IDs, 32-bit orbit phase, attachment state, all 11 PC shot
     cooldown/multiposition bays. The level-start Player checkpoint is static
-    instead of a large stack local (Player and checkpoint: 200 bytes each).
+    instead of a large stack local (Player and checkpoint: 202 bytes each).
     Sidekick HUD state cache: 4 bytes; pause message pointer: 4 bytes;
     campaign difficulty baseline: 1 byte (plus alignment);
-    replay loadout controls: 3 bytes.
+    replay loadout controls: 4 bytes; superbomb HUD cache: 1 byte.
     Normal boot uses 1,492 stack bytes, below the 0xA00 reserve (2026-10-21).
   - `sprites.c` piece cache — up to 88 slots x 4 bytes (48 for episode 2);
     `debug_hold_level` — 1 byte for headless replay flow control.
@@ -324,7 +329,7 @@ Fill and keep current.
 - Entity caps: enemies 100, enemy shots 60, player shots 64, explosions 64.
 - ROM: unified cartridge (2026-10-21): fixed .text ~3.24 MB,
   initial .data 90; far graphics and extra option/weapon frames bring the used physical ROM
-  end to 7,260,477 bytes, padded to 8 MB (86%). The fixed region still has ~400 KB
+  end to 7,283,609 bytes, padded to 8 MB (86%). The fixed region still has ~400 KB
   of headroom. The shipped SGDK math source is
   recompiled with function sections (read-only include); garbage collection
   removes ~393 KB of unused log/sqrt tables and other unused math routines.
@@ -354,6 +359,9 @@ Fill and keep current.
   (bottom 4 px of tile A + top 4 px of tile B) for each vertical pair that
   occurs (max 515 pairs per layer). Maps stay in tile units.
 - Worst frame (cycles): (level — cycles — date)
+  - episode 1, ten superbombs, 600-tick sidekick-button replay: avg busy
+    73,344 / max 127,856 cycles, two frames without idle, 1,240-byte stack.
+    Loop work peaks at 153,840 cycles; slowdown remains (2026-10-21).
   - episode 2, Charge Cannon + MegaMissile, 600-tick sidekick replay:
     avg busy 82,019 / max 127,856 cycles, 17 frames without idle, 1,236-byte
     stack. Tick-loop work peaks at 229,482 cycles; this loadout still slows
@@ -411,8 +419,9 @@ Fill and keep current.
   five seconds. Five sidekick loadouts are also checked against their own
   golden hashes on both regions (`make parity-sidekicks`), plus a sixth
   Plasma Storm loadout for large projectile artwork/collision; `game_hash`
-  includes charge, ammo, movement history, orbit and attachment state when
+  includes superbomb stock/cooldown and charge, ammo, movement history, orbit and attachment state when
   sidekicks are equipped.
+  Two ten-bomb replays also run in both regions.
   Converter unit tests (Python) join tier 0 from stage 2. The runner sets
   `debug_hold_level` at the first tick: death/end does not restart or leave
   the level during a fixed-length replay, matching the host. The default

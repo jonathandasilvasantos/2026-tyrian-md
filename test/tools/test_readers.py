@@ -65,3 +65,13 @@ def test_sprite_tables_and_pics():
     assert len(font) == 60
     pic, pal = shapes.load_pic(2)
     assert len(pic) == 64000 and pal == 7
+
+
+def test_superbomb_chain_artwork_dependencies():
+    it = items.load_items(1)
+    assert {535, 66} <= items.weapon_dependencies(it, {535})
+
+
+def test_weapon_dependency_cycles_and_invalid_ids():
+    it = {"weapons": [{"attack": []}, {"attack": [102]}, {"attack": [101]}]}
+    assert items.weapon_dependencies(it, {0, 1, 999}) == {1, 2}

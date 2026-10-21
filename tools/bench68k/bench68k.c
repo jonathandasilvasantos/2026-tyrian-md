@@ -59,7 +59,8 @@ static uint32_t idle_lo[16], idle_hi[16]; static int nidle;
 static uint32_t prev_pc; static uint64_t prev_cyc, frame_idle;
 static uint32_t hash_on_addr, level_addr, episode_addr; static int force_level, force_episode;
 static unsigned force_options, option_left, option_right;
-static uint32_t loadout_addr, left_option_addr, right_option_addr;
+static uint32_t loadout_addr, left_option_addr, right_option_addr, bombs_addr;
+static unsigned force_bombs;
 static uint32_t tick_addr, hash_addr, crash_lo, crash_hi, die_addr, hold_level_addr, main_addr;
 static uint64_t ticks, want; static unsigned last_tick_frame;
 static uint32_t hf_lo, hf_hi; static uint64_t *hf_cyc;
@@ -122,6 +123,7 @@ void bench_instr_hook(unsigned int pc) {
         it_start = c; idle_at_start = idle_total; it_ticked = 0;
     }
     if (pc == main_addr) {
+        if (bombs_addr) wr8(bombs_addr, force_bombs);
         if (force_options && loadout_addr && left_option_addr && right_option_addr) {
             wr8(loadout_addr, 1); wr8(left_option_addr, option_left); wr8(right_option_addr, option_right);
         }
@@ -248,6 +250,7 @@ static void load_syms(const char *path) {
         if (!strcmp(name, "hash_enabled")) hash_on_addr = addr;
         if (!strcmp(name, "debug_level")) level_addr = addr;
         if (!strcmp(name, "debug_episode")) episode_addr = addr;
+        if (!strcmp(name, "debug_bombs")) bombs_addr = addr;
         if (!strcmp(name, "debug_loadout")) loadout_addr = addr;
         if (!strcmp(name, "debug_left_option")) left_option_addr = addr;
         if (!strcmp(name, "debug_right_option")) right_option_addr = addr;
@@ -317,6 +320,10 @@ int main(int argc, char **argv) {
     }
     if (getenv("B68K_FUNC")) for (i = 0; i < nsyms - 1; i++) if (!strcmp(syms[i].name, getenv("B68K_FUNC"))) {
         hf_lo = syms[i].addr; hf_hi = syms[i + 1].addr; hf_cyc = calloc((hf_hi - hf_lo) / 2 + 1, 8); }
+    if (getenv("B68K_BOMBS")) {
+        force_bombs = atoi(getenv("B68K_BOMBS"));
+        if (force_bombs > 10) { fprintf(stderr, "B68K_BOMBS must be 0..10\n"); return 2; }
+    }
     if (getenv("B68K_OPTIONS")) {
         if (sscanf(getenv("B68K_OPTIONS"), "%u,%u", &option_left, &option_right) != 2 || option_left > 30 || option_right > 30) {
             fprintf(stderr, "B68K_OPTIONS requires two IDs 0..30\n"); return 2;
