@@ -533,6 +533,50 @@ def _hist(imgs):
     return hist
 
 
+def cosmetic_images():
+    """Starfield and superpixel art; only the first 8x8 cell is displayed."""
+    images = []
+    for color in range(0x90, 0xa0):
+        image = np.full((8, 8), -1, np.int32)
+        image[1, 1] = color
+        if color >= 0x94:
+            for x, y in ((0, 1), (2, 1), (1, 0), (1, 2)):
+                image[y, x] = color - 4
+        images.append(image)
+    for color in range(16):
+        for brightness in range(8):
+            image = np.full((8, 8), -1, np.int32)
+            image[1, 1] = color * 16 + brightness
+            for x, y in ((0, 1), (2, 1), (1, 0), (1, 2)):
+                image[y, x] = color * 16 + (brightness >> 1)
+            images.append(image)
+    return images
+
+
+def pack_tiny_images(images, rgb):
+    """Share identical quantized cells, then pack four cells per cache slot.
+
+    Returned references encode group*4 + tile, in VDP column order. Keep the
+    source-index image of each representative so the normal quantizer emits
+    byte-identical colors, including opaque black versus transparency.
+    """
+    colors = [palette.cram_to_rgb(word) for word in PLAYER_CRAM]
+    colors += [(0, 0, 0)] * (14 - len(colors)) + [(255, 255, 255)]
+    lut = quantize.remap(np.arange(256), rgb, np.array(colors, np.float64))
+    unique, representatives, references = {}, [], []
+    for image in images:
+        key = np.where(image >= 0, lut[np.maximum(image, 0)], 0).astype(np.uint8).tobytes()
+        if key not in unique:
+            unique[key] = len(unique)
+            representatives.append(image)
+        references.append(unique[key])
+    groups = [np.full((16, 16), -1, np.int32) for _ in range((len(unique) + 3) // 4)]
+    for index, image in enumerate(representatives):
+        x, y = (index % 4 // 2) * 8, (index % 2) * 8
+        groups[index // 4][y:y+8, x:x+8] = image
+    return groups, references
+
+
 def gen_sprites(out, it, lvls, bg_pals):
     """Sprite graphics.  Palette line 2: player ships and all shots (player
     and enemy shots share sheets 8/12).  Palette line 3: the enemy banks the
@@ -570,29 +614,14 @@ def gen_sprites(out, it, lvls, bg_pals):
         gfx.append(_piece(tabs[11], f - 500) if f > 500 else _piece(tabs[7], f))
         pal_of.append(0)
 
-    star_gfx = []
-    for color in range(0x90, 0xa0):
-        star_gfx.append(len(gfx))
-        img = np.full((16, 16), -1, np.int32)
-        img[1, 1] = color
-        if color >= 0x94:
-            for x, y in ((0, 1), (2, 1), (1, 0), (1, 2)):
-                img[y, x] = color - 4
-        gfx.append(img)
-        pal_of.append(0)
-
-    # JE_drawSP's five-pixel cross. A black backdrop approximates the PC's
-    # framebuffer blend; the fixed actor palette quantizes all 16 hue banks.
-    particle_gfx = []
-    for color in range(16):
-        for brightness in range(8):
-            particle_gfx.append(len(gfx))
-            img = np.full((16, 16), -1, np.int32)
-            img[1, 1] = color * 16 + brightness
-            for x, y in ((0, 1), (2, 1), (1, 0), (1, 2)):
-                img[y, x] = color * 16 + (brightness >> 1)
-            gfx.append(img)
-            pal_of.append(0)
+    # Four tiny textures share one normal 16x16 cache slot. This avoids
+    # uploading three transparent tiles for every 8x8 star/particle frame.
+    tiny_groups, tiny_refs = pack_tiny_images(cosmetic_images(), rgb)
+    tiny_base = len(gfx) * 4
+    star_gfx = [tiny_base + ref for ref in tiny_refs[:16]]
+    particle_gfx = [tiny_base + ref for ref in tiny_refs[16:]]
+    gfx.extend(tiny_groups)
+    pal_of.extend([0] * len(tiny_groups))
 
     # Sidekick artwork shares the player's palette. Styles 1/2 use the
     # large sprite sheet; the rest use individual ship-sheet pieces.
@@ -834,7 +863,7 @@ def gen_sprites(out, it, lvls, bg_pals):
          "#define GFX_NONE 0xFFFF\n"
          "/* shot frame (1..1000, >500 = sheet 12) -> gfx */\n"
          "extern const u16 shot_gfx[1001];\n"
-         "extern const u16 beam_gfx[1], star_gfx[16], particle_gfx[128];\n"
+         "extern const u16 beam_gfx[1];\n/* tiny refs: gfx ID * 4 + 8x8 tile within that cache slot */\nextern const u16 star_gfx[16], particle_gfx[128];\n"
          "extern const u16 option_small_gfx[305], option_big_gfx[305];\n"
          "typedef struct { u16 gfx; u8 x, y; } SpecialPiece;\n"
          "extern const SpecialPiece special_pieces[];\n"
@@ -924,11 +953,13 @@ def gen_motion(out):
     values = [math.floor(20 * math.sin(2 * math.pi * i / 1024) + 0.5) for i in range(1024)]
     emit.write_if_changed(os.path.join(out, "motion.h"), emit.HEADER +
                           '#ifndef GEN_MOTION_H\n#define GEN_MOTION_H\n#include "game/types.h"\n'
-                          'extern const int8_t orbit_sine[1024];\nextern const int16_t particle_sine[1024];\n#endif\n')
+                          'extern const int8_t orbit_sine[1024];\nextern const int16_t particle_sine[1024];\nextern const uint32_t star_position_base[256];\n#endif\n')
     emit.write_if_changed(os.path.join(out, "motion.c"), emit.HEADER + '#include "motion.h"\n' +
                           emit.c_array("int8_t", "orbit_sine", values, 32, "{}") +
                           emit.c_array("int16_t", "particle_sine",
-                                       [round(32767 * math.sin(2 * math.pi * i / 1024)) for i in range(1024)], 16, "{}"))
+                                       [round(32767 * math.sin(2 * math.pi * i / 1024)) for i in range(1024)], 16, "{}") +
+                          emit.c_array("uint32_t", "star_position_base",
+                                       [((i * 256 // 320) << 16) | (i * 256 % 320) for i in range(256)], 8, "0x{:08X}"))
 
 
 def main():

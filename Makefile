@@ -101,9 +101,9 @@ out/test_game: test/test_game.c $(GAME_SRCS) $(GAME_HDRS) Makefile
 	@mkdir -p out
 	$(CC) $(HOST_CFLAGS) test/test_game.c $(GAME_SRCS) -o $@
 
-out/test_stars: test/test_stars.c src/game/stars.c src/game/stars.h src/game/rng.c src/game/special.h Makefile
+out/test_stars: test/test_stars.c src/game/stars.c src/game/stars.h src/game/rng.c src/game/special.h src/gen_data/motion.c Makefile
 	@mkdir -p out
-	$(CC) $(HOST_CFLAGS) test/test_stars.c src/game/stars.c src/game/rng.c -o $@
+	$(CC) $(HOST_CFLAGS) test/test_stars.c src/game/stars.c src/game/rng.c src/gen_data/motion.c -o $@
 
 out/test_particles: test/test_particles.c src/game/particles.c src/game/particles.h src/game/rng.c src/gen_data/motion.c Makefile
 	@mkdir -p out

@@ -6,9 +6,35 @@
 SpecialState special_state;
 static unsigned failures;
 #define CHECK(c) do { if (!(c)) { printf("FAIL stars:%d %s\n", __LINE__, #c); failures++; } } while (0)
+static void test_occlusion(void)
+{
+    static uint8_t cells[32 * 48];
+    static const int16_t offsets[] = {-32768, -256, -17, -1, 0, 7, 31, 255, 32767};
+    unsigned i, j, x, y;
+    StarMask mask = {cells, 0, 0, 42};
+    for (i = 0; i < sizeof(cells); i++) cells[i] = (i * 7 + i / 48) % 5 != 0;
+    for (i = 0; i < sizeof(offsets)/sizeof(offsets[0]); i++) {
+        mask.x = offsets[i];
+        for (j = 0; j < sizeof(offsets)/sizeof(offsets[0]); j++) {
+            mask.y = offsets[j];
+            for (y = 0; y < 200; y++) for (x = 0; x < 320; x++) {
+                int col = ((int32_t)x + mask.x) >> 3;
+                unsigned row = (((int32_t)y + mask.y) >> 3) & 31;
+                int clear = col < 0 || col >= mask.columns || cells[row * 48 + col];
+                CHECK(star_mask_clear(&mask, x, y) == (clear != 0));
+            }
+        }
+    }
+    mask.cells = 0;
+    CHECK(star_mask_clear(&mask, 100, 80));
+    mask.cells = cells; mask.columns = 0;
+    CHECK(star_mask_clear(&mask, 100, 80));
+}
+
 int main(void)
 {
     uint32_t i, expected_rng;
+    test_occlusion();
     uint16_t x, y;
     for (i = 0; i < 65536; i++) {
         star_coordinates((uint16_t)i, &x, &y);

@@ -5,6 +5,7 @@
 #include <genesis.h>
 
 #include "gen_data/level_bg.h"
+#include "game/stars.h"
 
 /* first VRAM tile after the background slot pool */
 #include "game/game.h"
@@ -12,7 +13,7 @@
 
 void bg_init(void);
 /* Coarse star occlusion: both planes must have a fully clear 8x8 cell. */
-bool bg_star_visible(s16 x, s16 y);
+void bg_star_masks(StarMask masks[2]);
 /* once per 60 Hz frame; frac = progress towards the next tick, 0..11 */
 void bg_update(u16 frac, bool light);
 

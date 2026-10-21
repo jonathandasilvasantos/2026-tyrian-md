@@ -203,17 +203,15 @@ static void astral_background(bool hidden)
                        0, PLANE_ROWS * 64, 2, DMA_QUEUE);
 }
 
-bool bg_star_visible(s16 x, s16 y)
+void bg_star_masks(StarMask masks[2])
 {
     u16 i;
     for (i = 0; i < BG_LAYER_COUNT; i++) {
-        const Layer *l = &layers[i];
-        s16 col = (x + SX_OFF - rendered_x[i]) >> 3;
-        u16 row = ((y + SY_OFF + l->vy) >> 3) & 31;
-        if (i == 0 && astral_hidden) continue;
-        if (col >= 0 && col < (s16)(l->def->mcols * 3) && !star_clear[i][row][col]) return FALSE;
+        masks[i].cells = i == 0 && astral_hidden ? NULL : star_clear[i][0];
+        masks[i].x = SX_OFF - rendered_x[i];
+        masks[i].y = SY_OFF + layers[i].vy;
+        masks[i].columns = layers[i].def->mcols * 3;
     }
-    return TRUE;
 }
 
 void bg_update(u16 frac, bool light)

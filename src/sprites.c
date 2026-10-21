@@ -44,6 +44,7 @@ static u16 slot_gfx[SPRITES_PIECE_MAX];
 static u16 slot_stamp[SPRITES_PIECE_MAX];
 static u8 gfx_slot[SPR_GFX_COUNT];   /* slot + 1, 0 = not resident */
 static u16 stamp, victim;
+static bool piece_full;
 static const u16 *const *big_bank;   /* this level's bank -> big frame tables */
 static u16 big_tile0, big_victim;
 static u16 big_slot_gfx[BIG_SLOTS], big_slot_stamp[BIG_SLOTS];
@@ -111,6 +112,7 @@ void sprites_init(u16 first_tile)
 static u16 gfx_upload(u16 gfx)
 {
     u16 s, k;
+    if (piece_full) return 0;
     for (k = 0; k < GFX_SLOTS; k++) {
         s = victim;
         if (++victim == GFX_SLOTS) victim = 0;
@@ -123,6 +125,9 @@ static u16 gfx_upload(u16 gfx)
             return gfx_tile0 + s * 4;
         }
     }
+    /* Slot stamps only become used during a rebuild; a full cache stays
+     * full until the next stamp. Avoid rescanning it for every spark/star. */
+    piece_full = TRUE;
     return 0;
 }
 
@@ -170,6 +175,28 @@ static inline void put(u16 gfx, s16 x, s16 y)
     n++;
 }
 
+/* Four 8x8 textures share one standard cache piece. Same screen clipping
+ * and motion tracking as put(), with a palette fixed to the actor line. */
+static inline void put_tiny(u16 ref, s16 x, s16 y)
+{
+    u16 gfx = ref >> 2, slot, tile;
+    if (n >= SPR_MAX) return;
+    x += SX_OFF + 0x80;
+    y += SY_OFF + 0x80;
+    if ((u16)(x - 0x80 + 16) >= 336 || (u16)(y - 0x80 + 16) >= 240) return;
+    slot = gfx_slot[gfx];
+    if (slot) {
+        slot_stamp[slot - 1] = stamp;
+        tile = gfx_tile0 + (slot - 1) * 4;
+    } else if (!(tile = gfx_upload(gfx))) return;
+    sp->y = y;
+    sp->size_link = (SPRITE_SIZE(1, 1) << 8) | (n + 1);
+    sp->attribut = (PAL2 << 13) | (tile + (ref & 3));
+    sp->x = x;
+    track(x, y);
+    sp++; n++;
+}
+
 /* a composed 2x2 enemy (3x4 cells) at PC playfield (x, y) = top-left */
 static inline void put_big(u16 big, s16 x, s16 y)
 {
@@ -214,11 +241,13 @@ static inline void put_big(u16 big, s16 x, s16 y)
 static void draw_stars(void)
 {
     s16 offset[3];
+    StarMask masks[2];
     u16 i, index = rot_star, failed = 0;
     if (!starfield.initialized || (!starfield.active && !starfield.draw_astral)) return;
+    bg_star_masks(masks);
     for (i = 0; i < 3; i++) {
         s16 speed = starfield.speed + (s16)i + 2;
-        offset[i] = ((s32)speed * (256 - frac_q)) >> 8;
+        offset[i] = ((s32)speed * (s16)(256 - frac_q)) >> 8;
     }
     for (i = 0; i < STAR_COUNT && n < SPR_MAX; i++) {
         const Star *s = &starfield.star[index];
@@ -226,12 +255,11 @@ static void draw_stars(void)
         s16 py;
         star_coordinates(s->position, &x, &y);
         py = (s16)y - offset[s->speed - 2];
-        if (!(failed & (1u << (s->color - 0x90))) && x >= 24 && x < 288 && y < 177 && py >= 0 && bg_star_visible(x, py)) {
+        if (!(failed & (1u << (s->color - 0x90))) && x >= 24 && x < 288 && y < 177 && py >= 0 && star_mask_clear(&masks[0], x, py) && star_mask_clear(&masks[1], x, py)) {
             object_delta(0, starfield.speed + s->speed);
             before = n;
-            put(star_gfx[s->color - 0x90], x - 1, py - 1);
-            if (n != before) sp[-1].size_link = (SPRITE_SIZE(1, 1) << 8) | n;
-            else failed |= 1u << (s->color - 0x90);
+            put_tiny(star_gfx[s->color - 0x90], x - 1, py - 1);
+            if (n == before) failed |= 1u << (s->color - 0x90);
         }
         index = index ? index - 1 : STAR_COUNT - 1;
     }
@@ -372,11 +400,9 @@ static void draw_particles(void)
     for (i = 0; i < PARTICLE_MAX && n < SPR_MAX; i++) {
         const Particle *p = &particles.item[index];
         if (p->life && p->x >= 24 && p->x < 288 && p->y >= 0 && p->y < 184) {
-            u16 before = n;
             object_delta(p->dx, p->dy);
-            put(particle_gfx[(p->color & 0xF0) / 2 + (p->life >> 1)],
+            put_tiny(particle_gfx[(p->color & 0xF0) / 2 + (p->life >> 1)],
                 lerp(p->x - p->dx, p->x) - 1, lerp(p->y - p->dy, p->y) - 1);
-            if (n != before) sp[-1].size_link = (SPRITE_SIZE(1, 1) << 8) | n;
         }
         index = (index + 1) & (PARTICLE_MAX - 1);
     }
@@ -428,6 +454,7 @@ void sprites_update(u16 frac, bool ticked)
         skipped = FALSE;
     }
     if (++stamp == 0) stamp = 1;
+    piece_full = FALSE;
     frac_q = frac * 21;
     lerp_row = lerp_tab[frac];
     n = 0;
