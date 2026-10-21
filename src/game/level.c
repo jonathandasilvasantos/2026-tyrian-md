@@ -468,6 +468,13 @@ static void event_system(void)
             if (enemies[i].linknum == ev->dat4) enemies[i].enemydie = die;
         break;
     }
+    case 34:
+        game.music_fade = 1; game.music_volume = 255;
+        break;
+    case 35:
+        game.music_track = (uint8_t)ev->dat;
+        game.music_volume = 255; game.music_fade = 0;
+        break;
     case 36: game.ready_to_end_level = 1; break;
     case 37: game.level_enemy_frequency = (uint8_t)ev->dat; break;
     case 38: {
@@ -577,7 +584,9 @@ static void event_system(void)
         game.level_timer_jump_to = (uint16_t)ev->dat2;
         break;
     case 68: game.random_explosions = ev->dat == 1; break;
-    case 69: players[0].invulnerable_ticks = (uint8_t)ev->dat; break;
+    case 69:
+        players[0].invulnerable_ticks = players[1].invulnerable_ticks = (uint16_t)ev->dat;
+        break;
     case 70:
         if (ev->dat2 == 0) {
             uint8_t found = 0;

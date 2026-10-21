@@ -12,15 +12,31 @@ static const u8 pcm_channel[8] = { SOUND_PCM_CH1, SOUND_PCM_CH1, SOUND_PCM_CH1, 
                                    SOUND_PCM_CH1, SOUND_PCM_CH1, SOUND_PCM_CH2, SOUND_PCM_CH2 };
 static const u8 priority[8] = { 4, 6, 3, 15, 3, 5, 9, 10 };
 
+static u16 current_volume, source_volume;
+static void play_music(u8 song);
+
+static void music_volume(u16 percent)
+{
+    if (percent == current_volume) return;
+    current_volume = percent;
+    XGM2_setFMVolume(percent);
+    XGM2_setPSGVolume(percent);
+}
+
 void sound_init(void)
 {
     Z80_loadDriver(Z80_DRIVER_XGM2, TRUE);
+    current_volume = source_volume = 0xFFFF;
 }
 
 void sound_flush(void)
 {
     u16 i;
-    if (game.music_track) sound_music(game.music_track);
+    if (game.music_track) play_music(game.music_track);
+    if (source_volume != game.music_volume) {
+        source_volume = game.music_volume;
+        music_volume((u16)game.music_volume * 100 / 255);
+    }
     for (i = 0; i < 8; i++) {
         u8 id = game.sound_queue[i];
         if (!id) continue;
@@ -32,7 +48,7 @@ void sound_flush(void)
 }
 
 /* song: 1-based like the script's song numbers (play_song(n - 1)) */
-void sound_music(u8 song)
+static void play_music(u8 song)
 {
 #if MUSIC_TRACKS
     static u8 current;
@@ -47,9 +63,16 @@ void sound_music(u8 song)
 #endif
 }
 
+void sound_music(u8 song)
+{
+    play_music(song);
+    music_volume(100); /* frontend/title/shop requests restore full volume */
+    source_volume = 0xFFFF;
+}
+
 /* JE_pauseGame halves music volume, leaving PCM effects alone. */
 void sound_pause(bool paused)
 {
-    XGM2_setFMVolume(paused ? 50 : 100);
-    XGM2_setPSGVolume(paused ? 50 : 100);
+    music_volume((u16)game.music_volume * (paused ? 50 : 100) / 255);
+    source_volume = 0xFFFF;
 }

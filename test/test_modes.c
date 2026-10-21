@@ -212,12 +212,37 @@ static void test_bonus_navigation(void)
     script_level_done(17, 0); CHECK(!script.timer_expired);
 }
 
+
+static void test_music_and_invulnerability_events(void)
+{
+    unsigned i;
+    game_new(1, DIFFICULTY_NORMAL); game_start_level(LEVEL_FIRST);
+    run_event((LevelEvent){.type=34});
+    CHECK(game.music_fade && game.music_volume == 255 && !game.music_track);
+    game_step(0); CHECK(game.music_volume == 254 && game.music_fade);
+    for (i = 0; i < 244; i++) game_step(0);
+    CHECK(game.music_volume == 10 && game.music_fade);
+    game_step(0); CHECK(game.music_volume == 10 && !game.music_fade);
+    run_event((LevelEvent){.type=34});
+    CHECK(game.music_fade && game.music_volume == 255);
+    run_event((LevelEvent){.type=35,.dat=6});
+    CHECK(!game.music_fade && game.music_volume == 255 && game.music_track == 6);
+    game_step(0); CHECK(game.music_volume == 255);
+    run_event((LevelEvent){.type=69,.dat=400});
+    CHECK(players[0].invulnerable_ticks == 400 && players[1].invulnerable_ticks == 400);
+    game_step(0); CHECK(players[0].invulnerable_ticks == 399 && players[1].invulnerable_ticks == 400);
+    game.music_volume = 100; game.music_fade = 1; game.end_level = 1; game.level_end = 50;
+    game_step(0);
+    CHECK(game.music_track == 10 && !game.music_fade && game.music_volume == 99);
+}
+
 int main(void)
 {
     uint8_t episode;
     test_mode_events();
     test_buddy();
     test_bonus_navigation();
+    test_music_and_invulnerability_events();
     for (episode = 1; episode <= 4; episode++) {
         Player *p = &players[0];
         unsigned i;

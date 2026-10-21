@@ -41,6 +41,10 @@ int main(int argc, char **argv)
         if (mode < 1 || mode > 2 || level < 1 || level > LEVEL_COUNT) return 2;
         mode_engage();
         if (mode == 2) mode_galaga();
+    }
+    if (getenv("B68K_LEVEL")) {
+        int level = atoi(getenv("B68K_LEVEL"));
+        if (level < 1 || level > LEVEL_COUNT) return 2;
         game_start_level(level - 1);
     }
     if (getenv("B68K_BUDDY") && atoi(getenv("B68K_BUDDY"))) {

@@ -43,6 +43,7 @@ void game_start_level(uint8_t lv)
     game.sound_queue[3] = V_GOOD_LUCK;
     game.window_text = 0;
     game.bonus_section = game.bonus_display = game.music_track = 0;
+    game.music_volume = 255; game.music_fade = 0;
 }
 
 void game_init(void)
@@ -57,6 +58,17 @@ void game_step(uint16_t pad)
     uint16_t level_enemy;
 
     level_wrap();
+    /* JE_main fades before the event system: an event-34 tick stays full. */
+    if (game.music_fade) {
+        if (game.music_volume > 10) game.music_volume--;
+        else game.music_fade = 0;
+    }
+
+    if (game.end_level && game.level_end &&
+        (p->is_alive || (game_mode.buddy && players[1].is_alive))) {
+        game.music_track = 10; /* JE_main: play_song(9), level-end warp */
+        game.music_fade = 0;
+    }
 
     if (!game.end_level) {
         /* HUD section: shield recharge from the generator, power bar */
@@ -245,6 +257,8 @@ uint32_t game_hash(void)
             h = mix(h, (uint8_t)s->dx | (uint16_t)(uint8_t)s->dy << 8);
         }
     }
+    if (game.music_fade || game.music_volume != 255)
+        h = mix(h, 0xA0000000u | game.music_volume | (uint32_t)game.music_fade << 8);
     if (game.bonus_section || game.music_track)
         h = mix(h, 0xB0000000u | game.bonus_section | (uint32_t)game.bonus_display << 8 | (uint32_t)game.music_track << 16);
     if (game.cube_max) h = mix(h, 0xCD000000u | game.cube_max);

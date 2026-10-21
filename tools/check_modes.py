@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Check selected scripted modes on host and both 68000 video regions.
 
-Rows: episode mode level [linked-ship pickup] hash. Mode 1 = ENGAGE, 2 = ENGAGE + GALAGA.
+Rows: episode mode level [linked-ship pickup] hash. Mode 0 = story, 1 = ENGAGE, 2 = ENGAGE + GALAGA.
 Recording writes only after all three independently executed results agree.
 """
 import argparse

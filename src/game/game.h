@@ -98,6 +98,7 @@ typedef struct {
     uint16_t custom_egr;
     uint8_t boss_link[2];
     uint8_t level_timer;
+    uint8_t music_volume, music_fade; /* PC tempVolume/musicFade, fixed maximum 255 */
     uint8_t bonus_section, bonus_display, music_track; /* pickup destination, 150-tick notice, 1-based song */
     uint8_t sound_queue[8];
     uint8_t window_text;      /* event 16 text 1..9 or bonus notice 10, 0 = none (renderer clears it) */   /* soundQueue: sample id per channel, consumed each tick */

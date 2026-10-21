@@ -7,3 +7,6 @@
 # Pickup present from level start: linked gun, charge levels and collisions.
 1 2 18 1 46d57644
 4 2 18 1 3f144171
+# Original early music fade/change events in Secret Tunnel and IXPIT.
+4 0 11 eafbb587
+4 0 20 0d9468f3
