@@ -15,4 +15,7 @@ else
     ROM=out/rom.bin
 fi
 
+# Mednafen 1.32 selects SSF2 only through its product-code database.
+# Prepare a launch copy; out/rom.bin retains Tyrian's cartridge identity.
+ROM=$(python3 tools/mednafen_rom.py "$ROM" out/rom-mednafen.bin)
 exec mednafen -video.fs 1 -md.stretch aspect "$ROM"

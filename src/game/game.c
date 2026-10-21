@@ -1,4 +1,5 @@
 #include "game.h"
+#include "episode.h"
 #include "player.h"
 #include "shots.h"
 #include "enemy.h"
@@ -16,6 +17,8 @@ void game_start_level(uint8_t lv)
     game.frame = 0;
     game.power = 0;
     game.difficulty = game.initial_difficulty;
+    /* tyrian2.c: episode 4 reduces the selected difficulty for each level. */
+    if (LEVEL_EPISODE == 4 && game.difficulty > DIFFICULTY_EASY) game.difficulty--;
     game.map_x_ofs[0] = game.map_x_ofs[1] = game.map_x_ofs[2] = 0;
     game.old_map_x_ofs = game.old_map_x3_ofs = 0;
     level_init();
@@ -34,10 +37,7 @@ void game_start_level(uint8_t lv)
 
 void game_init(void)
 {
-    game.initial_difficulty = DIFFICULTY_NORMAL;
-    rng_seed(0x2545F491u);
-    player_init();
-    game_start_level(LEVEL_FIRST);
+    game_new(LEVEL_DEFAULT_EPISODE, DIFFICULTY_NORMAL);
 }
 
 /* One tick, in tyrian2.c:JE_main order. */

@@ -2,7 +2,7 @@
 #
 #   make setup-sgdk   one-time: check m68k-elf-gcc, patch ./sgdk for GCC 15
 #   make gen          tyrian-data/ -> src/gen_data/ (tools/gen.py)
-#   make rom          out/rom.bin (SGDK), fails above 4 MB, pads + checksum
+#   make rom          out/rom.bin (SGDK), fails above 8 MB, pads + checksum
 #   make rom-demo     ROM that plays itself (AUTOPLAY), for emulator captures
 #   make host         out/tyrian_host (src/game on the host)
 #   make test         tier 0: converter + host unit tests, ROM build, 68000 boot/parity
@@ -20,7 +20,7 @@ HOST_CFLAGS := -std=c11 -O2 -Wall -Wextra -Werror -Isrc $(GAME_FLAGS)
 ROM_EXTRA_FLAGS := -fno-strict-aliasing -Wno-unterminated-string-initialization $(GAME_FLAGS)
 JAVA_HEADLESS_TOOL_OPTIONS := -Djava.awt.headless=true
 
-GAME_SRCS := $(wildcard src/game/*.c) src/gen_data/items.c src/gen_data/level.c src/gen_data/script.c
+GAME_SRCS := $(wildcard src/game/*.c) src/gen_data/items.c src/gen_data/level.c src/gen_data/script.c src/gen_data/episode_tables.c
 GAME_HDRS := $(wildcard src/game/*.h)
 
 EPISODE     ?= 1
@@ -28,7 +28,7 @@ BENCH_TICKS ?= 600
 REPLAY      ?= test/replays/boot.txt
 MUSASHI_REV := 313ebf1bd9f4d0d93341eb5ce21fd8a119e9dbdd
 
-.PHONY: all music setup-sgdk gen rom rom-demo host unit-test py-test test bench-68k parity clean
+.PHONY: all music setup-sgdk gen rom rom-demo host unit-test py-test test bench-68k parity parity-episodes clean
 
 all: rom
 
@@ -71,16 +71,17 @@ rom: gen
 	@# rescomp output depends on every file the .res names (WAV, VGM...)
 	@if [ -f res/resources.rs ] && [ -n "$$(find res -newer res/resources.rs -type f ! -name 'resources.*' 2>/dev/null | head -1)" ]; then \
 	    rm -f res/resources.rs out/res/resources.o; fi
-	@if [ -f res/resources.res ]; then GDK=$(GDK) JAVA_TOOL_OPTIONS="$(JAVA_HEADLESS_TOOL_OPTIONS)" $(MAKE) --no-print-directory -f $(GDK)/makefile.gen res/resources.rs; fi
+	@if [ -f res/resources.res ]; then GDK=$(GDK) JAVA_TOOL_OPTIONS="$(JAVA_HEADLESS_TOOL_OPTIONS)" $(MAKE) --no-print-directory -f platform/genesis/rom.mk res/resources.rs; fi
 	GDK=$(GDK) JAVA_TOOL_OPTIONS="$(JAVA_HEADLESS_TOOL_OPTIONS)" EXTRA_FLAGS="$(ROM_EXTRA_FLAGS)" \
-	    $(MAKE) --no-print-directory -j$(NPROC) -f $(GDK)/makefile.gen release
+	    $(MAKE) --no-print-directory -j$(NPROC) -f platform/genesis/rom.mk release
+	@python3 tools/check_cart.py out/rom.out
 	@touch out/.rom_stamp
-	@# Cartridge space is 0x000000-0x3FFFFF (agents.md §3): fail above 4 MB,
-	@# pad to the declared ROM end (src/boot/rom_head.c).
-	@python3 -c "import sys; f='$(ROM)'; d=open(f,'rb').read(); t=4*1024*1024; \
-	    sys.exit(f'ROM is {len(d)} bytes: over the 4 MB cartridge space') if len(d) > t else None; \
+	@# Physical cartridge budget is 8 MB; only 4 MB is CPU-visible.
+	@# Graphics use the mapper; code/tables/audio stay below 0x380000.
+	@python3 -c "import sys; f='$(ROM)'; d=open(f,'rb').read(); t=8*1024*1024; \
+	    sys.exit(f'ROM is {len(d)} bytes: over the 8 MB cartridge space') if len(d) > t else None; \
 	    open(f,'wb').write(d + b'\xff'*(t-len(d))); \
-	    u=len(d.rstrip(b'\xff').rstrip(b'\x00')); print(f'   ROM: {u} bytes used of 4 MB ({100*u//t}%)')"
+	    u=len(d.rstrip(b'\xff').rstrip(b'\x00')); print(f'   ROM: {u} bytes used of 8 MB ({100*u//t}%)')"
 	@python3 tools/fix_checksum.py $(ROM)
 
 rom-demo:
@@ -120,7 +121,7 @@ out/rom.syms: $(ROM)
 	@m68k-elf-nm -n out/rom.out > $@
 
 bench-68k: out/bench68k out/rom.syms
-	@./out/bench68k $(ROM) out/rom.syms $(BENCH_TICKS) $(REPLAY)
+	@B68K_EPISODE=$(EPISODE) ./out/bench68k $(ROM) out/rom.syms $(BENCH_TICKS) $(REPLAY)
 
 # Every level, 2000 ticks of test/replays/sweep.txt: frames used (ideal
 # 3429) and frames over budget.  Manual (minutes), agents.md §7.
@@ -130,8 +131,8 @@ bench-levels: out/bench68k out/rom.syms
 
 # ROM and host must reach the same state hash on the same replay (§5).
 parity: out/bench68k out/rom.syms out/tyrian_host
-	@r=$$(./out/bench68k $(ROM) out/rom.syms $(BENCH_TICKS) $(REPLAY) | tail -1 | awk '{print $$4}'); \
-	h=$$(./out/tyrian_host $(BENCH_TICKS) $(REPLAY) | awk '{print $$4}'); \
+	@r=$$(B68K_EPISODE=$(EPISODE) ./out/bench68k $(ROM) out/rom.syms $(BENCH_TICKS) $(REPLAY) | tail -1 | awk '{print $$4}'); \
+	h=$$(./out/tyrian_host $(BENCH_TICKS) $(REPLAY) $(EPISODE) | awk '{print $$4}'); \
 	if [ "$$r" = "$$h" ]; then echo "   PASS  parity ($(BENCH_TICKS) ticks, hash $$h)"; \
 	else echo "   FAIL  parity: rom $$r host $$h"; exit 1; fi; \
 	if [ "$(BENCH_TICKS):$(REPLAY)" = "600:test/replays/boot.txt" ]; then \
@@ -155,8 +156,12 @@ music: out/lds_dump
 py-test:
 	@python3 -m pytest -q test/tools
 
+parity-episodes: out/bench68k out/rom.syms out/tyrian_host
+	@./out/bench68k --self-test-mapper
+	@for ep in 1 2 3 4; do $(MAKE) --no-print-directory parity EPISODE=$$ep || exit $$?; done
+
 test: rom
-	@$(MAKE) --no-print-directory py-test out/test_game parity
+	@$(MAKE) --no-print-directory py-test out/test_game parity-episodes
 	@./out/test_game
 
 clean:

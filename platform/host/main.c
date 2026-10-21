@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "game/game.h"
+#include "game/episode.h"
+#include "gen_data/level.h"
 
 int main(int argc, char **argv)
 {
@@ -17,7 +19,7 @@ int main(int argc, char **argv)
 
     if (argc > 2 && !(fp = fopen(argv[2], "r"))) { perror(argv[2]); return 1; }
 
-    game_init();
+    game_new(argc > 3 ? (uint8_t)atoi(argv[3]) : LEVEL_DEFAULT_EPISODE, DIFFICULTY_NORMAL);
     for (f = 0; f < frames; f++) {
         char line[128];
         while (fp) {

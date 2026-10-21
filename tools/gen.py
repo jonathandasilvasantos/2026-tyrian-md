@@ -111,7 +111,7 @@ def gen_level_bg(ep, num, idx):
     pre = f"lv{idx}_"
     c = emit.c_array("u16", pre + "palette", cram)
     for li, L in enumerate(layers):
-        c += emit.c_array("u32", f"{pre}bg{li + 1}_tiles", L["tiles"], 6, "0x{:08X}")
+        c += emit.tile_array(f"{pre}bg{li + 1}_tiles", L["tiles"])
         c += emit.c_array("u16", f"{pre}bg{li + 1}_meta", L["meta"], 21)
         c += emit.c_array("u16", f"{pre}bg{li + 1}_metamap", L["metamap"], L["mcols"], "{}")
     entry = ("    { { " + ", ".join(
@@ -709,8 +709,8 @@ def gen_sprites(out, it, lvls, bg_pals):
          "extern const u32 big_tiles[];\n#endif\n")
     c = emit.HEADER + '#include "sprites.h"\n'
     c += emit.c_array("u16", "spr_palettes", words)
-    c += emit.c_array("u32", "ship_tiles", ship_tiles, 6, "0x{:08X}")
-    c += emit.c_array("u32", "spr_tiles", spr_tiles, 6, "0x{:08X}")
+    c += emit.tile_array("ship_tiles", ship_tiles)
+    c += emit.tile_array("spr_tiles", spr_tiles)
     c += emit.c_array("u8", "spr_gfx_pal", [2 + k for k in pal_of], 32, "{}")
     c += emit.c_array("u16", "shot_gfx", shot_index, 16, "{}")
     for bk, idx in sorted(bank_index.items()):
@@ -728,7 +728,7 @@ def gen_sprites(out, it, lvls, bg_pals):
             for i in range(35)) + "};\n"
     c += "const u16 *const *const big_gfx_level[] = {" + ",".join(
         f"big_lv{li}" for li in range(len(level_tables))) + "};\n"
-    c += emit.c_array("u32", "big_tiles", big_tiles or [0], 6, "0x{:08X}")
+    c += emit.tile_array("big_tiles", big_tiles or [0])
     c += emit.c_array("u8", "big_gfx_pal", big_pal or [3], 32, "{}")
     emit.write_if_changed(os.path.join(out, "sprites.h"), h)
     emit.write_if_changed(os.path.join(out, "sprites.c"), c)
@@ -744,12 +744,10 @@ def main():
     parser.add_argument("--episode", type=int, choices=range(1, 5), default=1)
     args = parser.parse_args()
     out, episode = args.out_dir, args.episode
-    nums = list(range(1, level.level_count(episode) + 1))
+    from tyrdata.combine import generate_episodes
+    generate_episodes(out, episode, gen_level_bg, write_level_bgs, gen_levels,
+                      gen_script, gen_items, gen_sprites)
     gen_palettes(out)
-    bgs = [gen_level_bg(episode, n, i) for i, n in enumerate(nums)]
-    write_level_bgs(out, bgs)
-    gen_levels(out, episode, nums)
-    gen_script(out, episode)
     gen_fonts(out)
     gen_title(out)
     res = gen_sounds(out, "res")
@@ -761,7 +759,6 @@ def main():
     emit.write_if_changed(os.path.join("res", "resources.res"), res)
     emit.write_if_changed(os.path.join(out, "music.h"), emit.HEADER +
                           f"#ifndef GEN_MUSIC_H\n#define GEN_MUSIC_H\n#define MUSIC_TRACKS {len(songs)}\n#endif\n")
-    gen_sprites(out, gen_items(out, episode), [level.load_level(episode, n) for n in nums], [b["pals"] for b in bgs])
     print(f"   gen: {out}")
 
 

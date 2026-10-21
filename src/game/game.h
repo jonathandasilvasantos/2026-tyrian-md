@@ -54,6 +54,7 @@ typedef struct {
 } LayerScroll;
 
 typedef struct {
+    uint8_t initial_episode, repeated; /* story campaign wrap state */
     uint8_t level;            /* levels[] index = lvlFileNum - 1 */
     uint32_t frame;           /* game ticks so far */
     uint16_t cur_loc;         /* curLoc: scroll position counter driving events */

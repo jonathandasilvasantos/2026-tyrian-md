@@ -24,7 +24,8 @@
 
 #define SPR_MAX 80
 #define SPR_BUSY 24               /* sprites from which the list is rebuilt every other frame */
-#define GFX_SLOTS SPRITES_PIECE_SLOTS /* x 4 tiles; fits this episode */
+#define GFX_SLOTS gfx_slots /* x 4 tiles; fits this level */
+static u16 gfx_slots;
 #define BIG_SLOTS SPRITES_BIG_SLOTS /* x 12 tiles: composed 2x2 enemies */
 /* PC playfield (24..287 x 0..183) -> screen 8..271 x 24..207; the rest is
  * the HUD frame (window plane).  bg.c uses the same offsets. */
@@ -33,8 +34,8 @@
 
 static u16 ship_tile, gfx_tile0;
 static u16 ship_loaded;          /* (ship << 8 | bank) uploaded, 0xFFFF none */
-static u16 slot_gfx[GFX_SLOTS];
-static u16 slot_stamp[GFX_SLOTS];
+static u16 slot_gfx[SPRITES_PIECE_MAX];
+static u16 slot_stamp[SPRITES_PIECE_MAX];
 static u8 gfx_slot[SPR_GFX_COUNT];   /* slot + 1, 0 = not resident */
 static u16 stamp, victim;
 static const u16 *const *big_bank;   /* this level's bank -> big frame tables */
@@ -66,6 +67,7 @@ static const s8 *lerp_row;
 void sprites_init(u16 first_tile)
 {
     u16 i;
+    gfx_slots = SPRITES_PIECE_COUNT(level_bgs[game.level].pool_need);
     big_bank = big_gfx_level[game.level];
     ship_tile = first_tile;
     gfx_tile0 = first_tile + 12;

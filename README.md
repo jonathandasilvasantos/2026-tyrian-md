@@ -4,25 +4,27 @@
 
 A port of **Tyrian** (1995, Epic MegaGames) to stock Mega Drive hardware: 68000
 @ 7.67 MHz, 64 KB RAM, cartridge budget up to 64 Mbit (8 MB), no add-ons.
-Current builds contain one episode in a 4 MB cartridge. Built with SGDK 2.00 from
+The unified 8 MB SSF2 cartridge contains all four Tyrian 2.1 episodes. Built with SGDK 2.00 from
 the freeware Tyrian 2.1 data and the [OpenTyrian](https://github.com/opentyrian/opentyrian)
 source as the behavioral reference.
 
-**Status:** all four Tyrian 2.1 episodes can be converted and built as
-separate ROMs (`EPISODE=1..4`, 62 levels total). The engine includes episode
+**Status:** one ROM contains all four Tyrian 2.1 episodes (62 levels),
+with episode selection and campaign progression that preserves equipment
+and cash. `EPISODE=1..4` sets the menu default and benchmark episode. The engine includes episode
 scripts, shops and destination choice, enemies and level events, front/rear
 weapons, generator power, HUD, the 41 songs converted to YM2612/PSG, sound
-effects and voices. Story starting funds follow the original episode.
+effects and voices. Story starting funds follow the original episode; episode 4 also applies
+the original difficulty reduction.
 
 Validation covers script references for every episode, host unit tests and
 600-tick ROM/host replays at each episode's opening level. Full campaigns,
 visual accuracy and hardware timing still need validation; dense scenes can
 slow down. See `agents.md` §8 for deviations and §9 for budgets.
 
-Still required: a combined cartridge with episode selection/progression,
-saves, text screens and data cubes, sidekicks and special weapons, the third
+Still required: saves, text screens and data cubes, sidekicks and special weapons, the third
 (top) background layer, and the remaining OpenTyrian modes/features. The
-budget permits 8 MB, but a combined ROM needs explicit cartridge mapping.
+ROM uses the official Sega SSF2 mapper; code, tables and audio stay in the
+fixed lower 3.5 MB, while DMA maps graphics through the upper 512 KB.
 
 ## Quick start
 
@@ -35,14 +37,20 @@ git clone --recurse-submodules git@github.com:jonathandasilvasantos/2026-tyrian-
 cd 2026-tyrian-md
 git clone --depth 1 --branch v2.00 https://github.com/Stephane-D/SGDK.git sgdk
 make setup-sgdk      # patches SGDK 2.00's prebuilt lib for GCC 15
-make rom             # episode 1: converts data and builds out/rom.bin
-make rom EPISODE=2   # select episode 1, 2, 3 or 4 (overwrites out/rom.bin)
+make rom             # all episodes: builds the unified out/rom.bin
+make rom EPISODE=2   # same cartridge, episode 2 selected by default
 ./play.sh            # fullscreen in mednafen (./play.sh demo: self-playing ROM)
 ```
 
 `make rom` downloads Tyrian 2.1 (freeware) into `tyrian-data/` on first use
 and converts everything (`make gen`, `make music`); nothing from the original
 game is stored in this repository.
+
+`./play.sh` creates `out/rom-mednafen.bin` for Mednafen 1.32, whose
+[cartridge database](https://github.com/libretro-mirrors/mednafen-git/blob/master/src/md/cart/cart.cpp)
+selects SSF2 by product code rather than the standard `SEGA SSF` header.
+Only that emulator copy changes the product code; `out/rom.bin` retains
+Tyrian's identity for flashcarts and emulators supporting the SSF header.
 
 Controls: B fire, C rear weapon mode. Temporary debug keys until the shop
 sells everything: START cycles the front weapon, A its power.
@@ -63,8 +71,8 @@ sells everything: START cycles the front weapon, A its power.
 ## Tests
 
 ```sh
-make test          # episode 1: converter + host tests, ROM build, parity
-make test EPISODE=2 # the same checks for a selected episode
+make test          # converters, all four episode unit tests/replays, mapper
+make parity EPISODE=2 # one episode against its golden replay
 make bench-68k     # CPU load, deepest stack, per-function profile
 make bench-levels  # frames used per level (manual, minutes)
 ```

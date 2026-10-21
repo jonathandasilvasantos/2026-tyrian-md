@@ -3,12 +3,16 @@
  * player dies (then it is replayed with the items it started with). */
 #include <genesis.h>
 #include "game/game.h"
+#include "game/episode.h"
 #include "game/player.h"
 #include "game/script.h"
 #include "gen_data/script.h"
+#include "gen_data/episodes.h"
+#include "gen_data/level.h"
 #include "bg.h"
 #include "sprites.h"
 #include "dmaq.h"
+#include "cart.h"
 #include "hud.h"
 #include "menu.h"
 #include "sound.h"
@@ -17,7 +21,7 @@
  * tiles must end below the font (TILE_FONT_INDEX, 96 tiles below the
  * tilemaps at 0xC000), which holds the HUD font. */
 #define HUD_VRAM_TILES 28
-_Static_assert(BG_VRAM_END + SPRITES_VRAM_TILES + HUD_VRAM_TILES <= 0xC000 / 32 - 96, "VRAM over budget");
+_Static_assert(TILE_USER_INDEX + BG_POOL_NEED + 12 + SPRITES_PIECE_COUNT(BG_POOL_NEED) * 4 + SPRITES_BIG_SLOTS * 12 + HUD_VRAM_TILES <= 0xC000 / 32 - 96, "VRAM over budget");
 
 /* State hash after the latest tick; tools/bench68k reads it by symbol to
  * compare the ROM with the host build on the same replay. */
@@ -26,6 +30,7 @@ volatile u32 frame_hash;
 volatile u8 hash_enabled;
 /* set by tools/bench68k (B68K_LEVEL): play this level (1-based) directly */
 volatile u8 debug_level;
+volatile u8 debug_episode;
 /* Headless runner compares a fixed number of ticks, including after death. */
 volatile u8 debug_hold_level;
 
@@ -38,6 +43,7 @@ __attribute__((noinline)) void game_tick(u16 pad)
 
 static void level_screen_setup(const char *name)
 {
+    episode_graphics_select(LEVEL_EPISODE);
     VDP_setEnable(FALSE);
     VDP_clearPlane(BG_A, TRUE);
     VDP_clearPlane(BG_B, TRUE);
@@ -89,14 +95,17 @@ static u8 play_level(const FlowStep *st)
 int main(bool hard)
 {
     VDP_setScreenWidth320();
+    cart_init();
     sound_init();
-    if (!debug_level) title_screen();
-    game_init();          /* new game: items, RNG */
-    script_start();
+    game_new(debug_episode ? debug_episode : LEVEL_DEFAULT_EPISODE, DIFFICULTY_NORMAL);
+    if (!debug_level && !debug_episode) {
+        title_screen();
+        game_new(episode_screen(), DIFFICULTY_NORMAL);
+    }
     if (debug_level) {    /* benchmark entry: one level, replayed forever */
         FlowStep st = { FLOW_LEVEL, (u8)(debug_level - 1), 0, 0, 0, 0, 0 };
         while (TRUE) {
-            game_init();
+            game_new(debug_episode ? debug_episode : LEVEL_DEFAULT_EPISODE, DIFFICULTY_NORMAL);
             play_level(&st);
         }
     }
@@ -117,9 +126,9 @@ int main(bool hard)
         }
         case FLOW_END:
             message_screen("EPISODE COMPLETE", "Tyrian MD by Jonathan Santos");
-            title_screen();
-            game_init();
-            script_start();
+            game_next_episode();
+            sound_music(27);
+            message_screen(episode_name(LEVEL_EPISODE), "PRESS START");
             break;
         }
     }

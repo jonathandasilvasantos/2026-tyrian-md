@@ -11,6 +11,8 @@
 #include "gen_data/script.h"
 #include "gen_data/sprites.h"
 #include "gen_data/title.h"
+#include "gen_data/episodes.h"
+#include "gen_data/level.h"
 #include "sound.h"
 
 #define FONT_TILE TILE_USER_INDEX
@@ -18,6 +20,7 @@ static u16 held;
 
 void menu_begin(void)
 {
+    episode_graphics_select(LEVEL_EPISODE);
     VDP_setEnable(FALSE);
     VDP_setWindowHPos(FALSE, 0);
     VDP_setWindowVPos(FALSE, 0);
@@ -279,4 +282,38 @@ void title_screen(void)
         menu_frame();
     }
     menu_center(13, "            ");
+}
+
+const char *episode_name(u8 episode)
+{
+    return episode >= 1 && episode <= EPISODE_COUNT ? episode_names[episode - 1] : "";
+}
+
+u8 episode_screen(void)
+{
+    u8 sel = LEVEL_DEFAULT_EPISODE - 1, redraw = 1;
+#ifdef AUTOPLAY
+    return sel + 1;
+#endif
+    menu_begin();
+    for (;;) {
+        u16 edge = menu_pad_edge();
+        if (edge & BUTTON_UP) { sel = sel ? sel - 1 : EPISODE_COUNT - 1; redraw = 1; }
+        if (edge & BUTTON_DOWN) { sel = sel + 1 < EPISODE_COUNT ? sel + 1 : 0; redraw = 1; }
+        if (edge & (BUTTON_START | BUTTON_B | BUTTON_A)) return sel + 1;
+        if (redraw) {
+            u8 i;
+            char line[40];
+            redraw = 0;
+            menu_text(2, 1, "SELECT AN EPISODE", 36);
+            for (i = 0; i < EPISODE_COUNT; i++) {
+                line[0] = i == sel ? '*' : ' ';
+                line[1] = ' ';
+                strcpy(line + 2, episode_names[i]);
+                menu_text(2, 4 + i * 2, line, 36);
+            }
+            menu_text(2, 13, "UP/DOWN   B or START select", 36);
+        }
+        menu_frame();
+    }
 }

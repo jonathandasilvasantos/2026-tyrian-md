@@ -140,8 +140,8 @@ void bg_init(void)
     PAL_setColors(0, lb->palette, 32, DMA);
     VDP_clearPlane(BG_A, TRUE);
     VDP_clearPlane(BG_B, TRUE);
-    for (i = 0; i < POOL_SIZE; i++) free_slots[i] = TILE_USER_INDEX + POOL_SIZE - 1 - i;
-    free_count = POOL_SIZE;
+    for (i = 0; i < lb->pool_need; i++) free_slots[i] = TILE_USER_INDEX + lb->pool_need - 1 - i;
+    free_count = lb->pool_need;
 
     for (i = 0; i < BG_LAYER_COUNT; i++) {
         Layer *l = &layers[i];

@@ -7,16 +7,26 @@
 #include "game/script.h"
 #include "game/shop.h"
 #include "game/level.h"
+#include "game/episode.h"
+#include "game/rng.h"
+#include "gen_data/items.h"
+#include "gen_data/episodes.h"
 #include "gen_data/script.h"
 #include "gen_data/level.h"
 
 static int failures;
 #define CHECK(c) do { if (!(c)) { printf("FAIL %s:%d: %s\n", __FILE__, __LINE__, #c); failures++; } } while (0)
 
+static uint8_t test_episode = 1;
+static void test_init(void)
+{
+    game_new(test_episode, DIFFICULTY_NORMAL);
+}
+
 static uint32_t run(uint16_t pad, unsigned frames)
 {
     unsigned i;
-    game_init();
+    test_init();
     for (i = 0; i < frames; i++) game_step(pad);
     return game_hash();
 }
@@ -31,13 +41,13 @@ static int live_shots(void)
 static void test_story_start(void)
 {
     static const uint16_t cash[4] = {10000, 15000, 20000, 30000};
-    game_init();
+    test_init();
     CHECK(game.level == LEVEL_FIRST);
     CHECK(players[0].cash == cash[LEVEL_EPISODE - 1]);
     players[0].cash += 1234;
     game_start_level(LEVEL_FIRST);
     CHECK(players[0].cash == cash[LEVEL_EPISODE - 1] + 1234u);
-    game_init();
+    test_init();
     CHECK(players[0].cash == cash[LEVEL_EPISODE - 1]);
 }
 
@@ -51,10 +61,10 @@ static void test_ship_stays_in_pc_bounds(void)
 {
     unsigned i;
     /* Exercise movement without level enemies killing the test player. */
-    game_init();
+    test_init();
     for (i = 0; i < 400; i++) player_tick(PAD_LEFT | PAD_UP);
     CHECK(players[0].x == 40 && players[0].y == 10);
-    game_init();
+    test_init();
     for (i = 0; i < 400; i++) player_tick(PAD_RIGHT | PAD_DOWN);
     CHECK(players[0].x == 256 && players[0].y == 160);
 }
@@ -84,7 +94,7 @@ static void test_generator_limits_fire(void)
 static void test_level_spawns_and_kills_enemies(void)
 {
     unsigned i;
-    game_init();
+    test_init();
     for (i = 0; i < 1500; i++) game_step(PAD_B | ((i / 70) & 1 ? PAD_RIGHT : PAD_LEFT));
     CHECK(game.total_enemy > 0);
     CHECK(game.enemy_killed > 0);
@@ -95,7 +105,7 @@ static void test_level_spawns_and_kills_enemies(void)
 static void test_events_follow_cur_loc(void)
 {
     uint16_t next_event;
-    game_init();
+    test_init();
     level_run_events();
     next_event = game.event_loc;
     CHECK(next_event > 1);  /* time-zero setup has run */
@@ -130,7 +140,7 @@ static void test_script_walk(void)
 static void test_shop_trade_in(void)
 {
     uint32_t c1 = shop_cost(SHOP_FRONT, 1, 1), c3 = shop_cost(SHOP_FRONT, 1, 3);
-    game_init();
+    test_init();
     players[0].cash = 0;
     /* full trade-in value: selling Pulse Cannon Lv1 buys it back */
     CHECK(shop_buy(SHOP_FRONT, 1, 1) && players[0].cash == 0);
@@ -140,19 +150,50 @@ static void test_shop_trade_in(void)
     CHECK(shop_buy(SHOP_FRONT, 1, 3) && players[0].cash == 0 && players[0].weapon_power[0] == 3);
 }
 
+static void test_episode_transition(void)
+{
+    unsigned ep;
+    game_new(1, DIFFICULTY_NORMAL);
+    players[0].cash = 123456;
+    players[0].ship = 3;
+    players[0].weapon_id[0] = 17;
+    players[0].weapon_power[0] = 8;
+    for (ep = 2; ep <= 4; ep++) {
+        uint32_t saved_rng = rng_state;
+        game_next_episode();
+        CHECK(LEVEL_EPISODE == ep);
+        CHECK(players[0].cash == 123456 && players[0].ship == 3);
+        CHECK(players[0].weapon_id[0] == 17 && players[0].weapon_power[0] == 8);
+        CHECK(rng_state == saved_rng);
+        CHECK(script.section == 1 && script.save_section == 1 && script.choices == 0);
+    }
+    CHECK(enemy_dat[1].armor == 2 && enemy_dat[1].shapebank == 1);
+    rng_seed(3);  /* first rng16 is 12: SuperCarrot reward */
+    game_next_episode();
+    CHECK(LEVEL_EPISODE == 1 && game.repeated);
+    CHECK(players[0].cash == 123456);
+    CHECK(players[0].ship == 2 && players[0].weapon_id[0] == 23 && players[0].weapon_id[1] == 24);
+    CHECK(players[0].weapon_power[0] == 1 && players[0].weapon_power[1] == 1);
+    CHECK(enemy_dat[1].armor == 254 && enemy_dat[1].shapebank == 2);
+}
+
 int main(void)
 {
-    test_story_start();
-    test_deterministic();
-    test_ship_stays_in_pc_bounds();
-    test_velocity_is_capped();
-    test_pulse_cannon_fires_and_shots_leave();
-    test_generator_limits_fire();
-    test_level_spawns_and_kills_enemies();
-    test_events_follow_cur_loc();
-    test_script_walk();
-    test_shop_trade_in();
+    for (test_episode = 1; test_episode <= EPISODE_COUNT; test_episode++) {
+        test_story_start();
+        CHECK(game.difficulty == (test_episode == 4 ? DIFFICULTY_EASY : DIFFICULTY_NORMAL));
+        test_deterministic();
+        test_ship_stays_in_pc_bounds();
+        test_velocity_is_capped();
+        test_pulse_cannon_fires_and_shots_leave();
+        test_generator_limits_fire();
+        test_level_spawns_and_kills_enemies();
+        test_events_follow_cur_loc();
+        test_script_walk();
+        test_shop_trade_in();
+    }
+    test_episode_transition();
     if (failures) return 1;
-    printf("   PASS  test_game\n");
+    puts("   PASS  test_game (four episodes and campaign transitions)");
     return 0;
 }

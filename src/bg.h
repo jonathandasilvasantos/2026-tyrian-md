@@ -7,7 +7,8 @@
 #include "gen_data/level_bg.h"
 
 /* first VRAM tile after the background slot pool */
-#define BG_VRAM_END (TILE_USER_INDEX + BG_POOL_NEED)
+#include "game/game.h"
+#define BG_VRAM_END (TILE_USER_INDEX + level_bgs[game.level].pool_need)
 
 void bg_init(void);
 /* once per 60 Hz frame; frac = progress towards the next tick, 0..11 */

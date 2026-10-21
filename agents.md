@@ -73,9 +73,11 @@ PC file formats. Rules:
   VDP setup; measure, don't assume. PAL (50 Hz) must play at the same game
   speed (fixed timestep at 60, or scaled velocities — pick one, document it).
 - **ROM**: up to 64 Mbit (8 MB), authorized by the user on 2026-10-21.
-  Current builds still enforce 4 MB at 0x000000–0x3FFFFF. Before exceeding
-  that, implement cartridge mapping, Z80 audio bank access and matching
-  emulator checks; changing the size check alone is insufficient.
+  The unified cartridge uses the official Sega SSF2 mapper. Code, gameplay
+  tables, audio and initial RAM data must stay below physical 0x380000
+  (`tools/check_cart.py` enforces it); DMA-only graphics occupy
+  `.far_assets` at 0x380000 and above. The logical 0x380000–0x3FFFFF window
+  maps one 512 KB graphics bank at a time, with the Z80 held during DMA.
 - **RAM**: 64 KB total. Keep a budget table in this file (§9) and update it
   with every new runtime structure. SGDK stack reserve is small (≈0xA00):
   no large locals, no recursion.
@@ -236,14 +238,18 @@ Every intentional difference from OpenTyrian, one line each:
   Jason Emery, Daniel Cook, Alexander Brandon, Andreas Molnar, Epic
   MegaGames. SMALL_FONT's 12-px M/W are squeezed to 8 px.
 - Sprite cache — keep 20 big-enemy slots and fit up to 88 small-piece
-  slots into VRAM left by the selected episode (48 for episode 2) — its
+  slots into VRAM left by the current level (48 at episode 2's maximum) — its
   backgrounds need 951 resident tiles — extra distinct pieces can be
   omitted during a cache-saturated rebuild; ship/enemy bullets keep draw
   priority. Simulation and collision caps are unchanged.
-- Episode packaging — one selected episode per ROM (`make rom EPISODE=1..4`)
-  while combined cartridge mapping is pending — reuse the existing engine
-  and test each episode independently — no in-game episode selection or
-  transition to the next episode yet.
+- Episode packaging — all four episodes in one 8 MB SSF2 cartridge,
+  text episode selector and equipment/cash carried across episodes, including
+  the original SuperCarrot lottery on wrap — fit stock hardware — episode
+  completion still uses simple text screens; credits/cutscenes remain pending.
+- Emulator launcher — Mednafen 1.32 uses a product-code lookup for SSF2,
+  ignoring the homebrew `SEGA SSF` console header; `play.sh` prepares a copy
+  with the SSF2 database ID — keep the hardware ROM's Tyrian identity —
+  only the emulator copy reports that compatibility product ID.
 - Backgrounds — layer 3 (top) not drawn yet; layers are 336 px wide and are
   centered (8 px cut each side) instead of following the player's X — PC
   shows 264 px of them.
@@ -261,8 +267,10 @@ Fill and keep current.
   - `enemy_shots` 1,440, `explosions` 1,024, `gfx_slot` 2,032 (one byte per
     sprite piece of the level), shot collision lists ~300.
   - total .bss depends on the episode: episode 1 34,372 bytes; episode 2
-    34,980; episode 3 34,364; episode 4 30,124 (2026-10-21). Short opening-level runs use
-    1,492 stack bytes, below the 0xA00 reserve.
+    34,980; episode 3 34,364; episode 4 30,124 (historical separate builds).
+    Unified cartridge: .bss 35,588 bytes + .data 90; active table pointers
+    133 bytes, two campaign-state bytes, dynamic sprite-slot count 2 bytes.
+    Normal boot uses 1,492 stack bytes, below the 0xA00 reserve (2026-10-21).
   - `sprites.c` piece cache — up to 88 slots x 4 bytes (48 for episode 2);
     `debug_hold_level` — 1 byte for headless replay flow control.
 - VRAM map: (region — tiles/bytes)
@@ -270,13 +278,17 @@ Fill and keep current.
     `BG_POOL_NEED` (684 for 1.9: worst 30-row window, both layers); then free
     for sprites: ship 12 tiles, piece cache up to 88 x 4 = 352 tiles, big-enemy
     cache 20 x 12 = 240 tiles (`SPRITES_VRAM_TILES`); HUD bars 28 tiles;
-    the HUD font replaces SGDK's font (96 tiles below 0xC000). Pool sized by
-    the selected episode (episode 1: 743; episode 2: 951; episode 3: 691;
-    episode 4: 645); the small-piece cache shrinks to fit. main.c has a
+    the HUD font replaces SGDK's font (96 tiles below 0xC000). RAM pool sized for
+    the largest level (951); VRAM reserves only the current level's pool,
+    and the small-piece cache shrinks to fit. main.c has a
     `_Static_assert` on the total (1440) and the tilemaps at 0xC000 (SGDK
     defaults: plane B 0xC000, window 0xD000, plane A 0xE000, sprites 0xF800).
 - Entity caps: enemies 100, enemy shots 60, player shots 64, explosions 64.
-- ROM: code ?, graphics ?, levels ?, music ?, SFX ?, text ?
+- ROM: unified cartridge (2026-10-21): fixed .text 3,641,856 bytes,
+  initial .data 90; far graphics 3,487,232; physical end 0x6D3600 (~7.16 MB),
+  padded to 8 MB (85%). Fixed-region headroom is only ~27 KB; further
+  code/tables need deduplication/compression. Shared episode 1–3 item tables
+  are emitted once. Audio stays fixed, including the Z80's ROM accesses.
   - separate-episode builds (2026-10-21): episode 1 ~3.16 MB, episode 2
     ~2.75 MB, episode 3 ~2.90 MB, episode 4 ~2.95 MB; each is padded to 4 MB. These are opening
     replay checks, not full-campaign completion or visual verification.
@@ -301,6 +313,11 @@ Fill and keep current.
   (bottom 4 px of tile A + top 4 px of tile B) for each vertical pair that
   occurs (max 515 pairs per layer). Maps stay in tile units.
 - Worst frame (cycles): (level — cycles — date)
+  - unified ROM, 600-tick opening replay, 2026-10-21: episode 2 avg busy
+    80,008 / max 127,856 cycles, 24 frames without idle; episode 4 (Normal
+    selected, Easy internally as on PC) 66,058 / 118,516, none without idle.
+    Normal title/episode-menu boot reaches the episode 1 golden hash and
+    uses 1,492 stack bytes. Short profiles do not prove worst-case 60 Hz.
   - short opening replays, 600 ticks, 2026-10-21 (no level restart after
     death): episode 2 avg busy 79,623 / max 127,856 cycles, 24 frames
     without idle (before starting-funds correction); episode 3 83,553 / 127,856, 13 frames without idle;
@@ -333,11 +350,14 @@ Fill and keep current.
 ## Tests
 
 - **Tier 0 (every edit, seconds)**: `make test` = host unit tests
-  (`test/test_game.c`), ROM build (fails above 4 MB, pads, checksum) and
+  (`test/test_game.c`), ROM build (fails above 8 MB, fixed region checked, pads, checksum) and
   `make parity`: the ROM runs headless on Musashi (`tools/bench68k`) and must
   reach the same `frame_hash` as `out/tyrian_host` on `test/replays/boot.txt`
   (`BENCH_TICKS`, `REPLAY` override). bench68k also aborts on CPU
-  exceptions, reads past 4 MB and stack beyond SGDK's 0xA00 reserve.
+  exceptions, CPU reads outside the logical 4 MB cartridge window, mapper
+  reads past physical ROM, DMA source boundary errors and stack beyond
+  SGDK's 0xA00 reserve. All four episode opening replays run in tier 0,
+  together with a synthetic test of all 16 physical mapper banks.
   Converter unit tests (Python) join tier 0 from stage 2. The runner sets
   `debug_hold_level` at the first tick: death/end does not restart or leave
   the level during a fixed-length replay, matching the host. The default

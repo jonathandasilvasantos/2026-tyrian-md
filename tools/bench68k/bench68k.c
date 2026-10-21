@@ -17,10 +17,11 @@
  * Output ends with "ticks N hash XXXXXXXX" (the ROM's frame_hash), directly
  * comparable with the host build's "frames N hash XXXXXXXX".
  *
- * Aborts (exit 3) on a CPU exception handler, SYS_die, a read past the 4 MB
- * cartridge space, a stack deeper than SGDK's 0xA00 reserve, or no
+ * Aborts (exit 3) on a CPU exception handler, SYS_die, a CPU read outside the logical 4 MB
+ * cartridge space or mapped read past physical ROM, a stack deeper than SGDK's 0xA00 reserve, or no
  * game_tick for B68K_HANG frames (default 600).
- * Environment: B68K_LEVEL=n plays level n directly (ROM debug_level),
+ * Environment: B68K_EPISODE=n selects episode n (default ROM menu default),
+ * B68K_LEVEL=n plays level n directly (ROM debug_level),
  * B68K_FUNC=name per-instruction cycle histogram of one function,
  * B68K_TOP=n functions listed (default 20), B68K_FRAMES=1
  * per-frame busy cycles, B68K_PROF=a,b profile only frames a..b-1.
@@ -38,6 +39,11 @@
 #define MAX_SYMS 20000
 
 static uint8_t *rom; static size_t rom_size;
+static int mapper_enabled;
+static uint8_t cart_banks[8] = {0,1,2,3,4,5,6,7};
+static uint8_t vdp_regs[24];
+static unsigned vdp_command_hi, vdp_command_pending;
+static unsigned dma_transfers;
 static uint8_t ram[0x10000];
 static uint8_t zram[0x2000];
 static unsigned frame_no;
@@ -48,8 +54,8 @@ typedef struct { uint32_t addr; char name[64]; uint64_t cyc, ins; } Sym;
 static Sym *syms; static int nsyms;
 static uint32_t idle_lo[16], idle_hi[16]; static int nidle;
 static uint32_t prev_pc; static uint64_t prev_cyc, frame_idle;
-static uint32_t hash_on_addr, level_addr; static int force_level;
-static uint32_t tick_addr, hash_addr, crash_lo, crash_hi, die_addr, hold_level_addr;
+static uint32_t hash_on_addr, level_addr, episode_addr; static int force_level, force_episode;
+static uint32_t tick_addr, hash_addr, crash_lo, crash_hi, die_addr, hold_level_addr, main_addr;
 static uint64_t ticks, want; static unsigned last_tick_frame;
 static uint32_t hf_lo, hf_hi; static uint64_t *hf_cyc;
 static int prof_on = 1;
@@ -110,6 +116,10 @@ void bench_instr_hook(unsigned int pc) {
         }
         it_start = c; idle_at_start = idle_total; it_ticked = 0;
     }
+    if (pc == main_addr) {
+        if (force_episode && episode_addr) wr8(episode_addr, (unsigned)force_episode);
+        if (force_level && level_addr) wr8(level_addr, (unsigned)force_level);
+    }
     if (pc == tick_addr) {
         it_ticked = 1;
         if (hold_level_addr) wr8(hold_level_addr, 1);
@@ -141,7 +151,11 @@ static unsigned rd8(unsigned a) {
     a &= 0xFFFFFF;
     /* 0x400000-0x7FFFFF is the expansion area: open bus on a cartridge. */
     if (a >= 0x400000 && a < 0x800000) crash_report("read past the 4 MB cartridge space", m68k_get_reg(NULL, M68K_REG_PPC));
-    if (a < 0x400000) return a < rom_size ? rom[a] : 0xFF;
+    if (a < 0x400000) {
+        unsigned physical = mapper_enabled ? ((unsigned)cart_banks[a >> 19] << 19) | (a & 0x7FFFF) : a;
+        if (mapper_enabled && physical >= rom_size) crash_report("mapper read past physical ROM", m68k_get_reg(NULL, M68K_REG_PPC));
+        return physical < rom_size ? rom[physical] : 0xFF;
+    }
     if (a >= 0xE00000) return ram[a & 0xFFFF];
     if (a >= 0xA00000 && a < 0xA10000) { if ((a & 0x7FFF) < 0x2000) return zram[a & 0x1FFF] | ((a & 0x1FFF) == 0x102 ? 0x80 : 0); return 0; }
     if (a >= 0xA10000 && a < 0xA10020) {
@@ -173,13 +187,42 @@ unsigned int m68k_read_disassembler_32(unsigned int a) { return m68k_read_memory
 
 static void wr8(unsigned a, unsigned v) {
     a &= 0xFFFFFF;
+    if (mapper_enabled && a >= 0xA130F3 && a <= 0xA130FF && (a & 1)) {
+        cart_banks[(a - 0xA130F1) >> 1] = v & 0x3F;
+        return;
+    }
     if (a >= 0xE00000) { ram[a & 0xFFFF] = (uint8_t)v; return; }
     if (a >= 0xA00000 && a < 0xA10000) { if ((a & 0x7FFF) < 0x2000) zram[a & 0x1FFF] = (uint8_t)v; return; }
     if (a == 0xA10003) { th[0] = (uint8_t)v; return; }
     if (a == 0xA10005) { th[1] = (uint8_t)v; return; }
 }
 void m68k_write_memory_8(unsigned int a, unsigned int v) { wr8(a, v); }
-void m68k_write_memory_16(unsigned int a, unsigned int v) { wr8(a, v >> 8); wr8(a + 1, v & 0xFF); }
+static void vdp_control(unsigned v) {
+    if ((v & 0xC000) == 0x8000) {
+        unsigned reg = (v >> 8) & 31;
+        if (reg < 24) vdp_regs[reg] = v;
+        vdp_command_pending = 0;
+    } else if (!vdp_command_pending) {
+        vdp_command_hi = v;
+        vdp_command_pending = 1;
+    } else {
+        vdp_command_pending = 0;
+        if ((v & 0x80) && (vdp_regs[1] & 0x10) && !(vdp_regs[23] & 0x80)) {
+            unsigned length = (vdp_regs[20] << 8) | vdp_regs[19];
+            unsigned source = ((vdp_regs[23] << 16) | (vdp_regs[22] << 8) | vdp_regs[21]) << 1;
+            if (!length) length = 65536;
+            if ((source & 0x1FFFF) + length * 2 > 0x20000)
+                crash_report("VDP DMA source crosses 128 KB boundary", m68k_get_reg(NULL, M68K_REG_PPC));
+            (void)rd8(source);
+            (void)rd8(source + length * 2 - 1);
+            dma_transfers++;
+        }
+    }
+}
+void m68k_write_memory_16(unsigned int a, unsigned int v) {
+    if ((a & 0xFFFFFC) == 0xC00004) { vdp_control(v); return; }
+    wr8(a, v >> 8); wr8(a + 1, v & 0xFF);
+}
 void m68k_write_memory_32(unsigned int a, unsigned int v) { m68k_write_memory_16(a, v >> 16); m68k_write_memory_16(a + 2, v & 0xFFFF); }
 
 static void load_syms(const char *path) {
@@ -191,10 +234,12 @@ static void load_syms(const char *path) {
     while (fgets(line, sizeof line, fp) && nsyms < MAX_SYMS) {
         unsigned addr; char t, name[64];
         if (sscanf(line, "%x %c %63s", &addr, &t, name) != 3) continue;
+        if (!strcmp(name, "main")) main_addr = addr;
         if (!strcmp(name, "frame_hash")) hash_addr = addr;
         if (!strcmp(name, "debug_hold_level")) hold_level_addr = addr;
         if (!strcmp(name, "hash_enabled")) hash_on_addr = addr;
         if (!strcmp(name, "debug_level")) level_addr = addr;
+        if (!strcmp(name, "debug_episode")) episode_addr = addr;
         if ((t == 'T' || t == 't') && addr < 0x800000) { syms[nsyms].addr = addr; strcpy(syms[nsyms].name, name); nsyms++; }
     }
     fclose(fp);
@@ -211,14 +256,46 @@ static void load_syms(const char *path) {
     if (!tick_addr || !hash_addr) { fprintf(stderr, "game_tick / frame_hash not in %s\n", path); exit(1); }
 }
 
+static int mapper_self_test(void) {
+    unsigned bank, i;
+    rom_size = 0x800000;
+    rom = malloc(rom_size);
+    if (!rom) return 1;
+    mapper_enabled = 1;
+    for (i = 0; i < rom_size; i++) rom[i] = (i >> 19) ^ (i & 0xFF);
+    for (bank = 0; bank < 16; bank++) {
+        wr8(0xA130FD, bank);
+        wr8(0xA130FF, 15 - bank);
+        if (rd8(0x300000) != bank || rd8(0x37FFFF) != (bank ^ 0xFF) ||
+            rd8(0x380000) != 15 - bank || rd8(0x3FFFFF) != ((15 - bank) ^ 0xFF) ||
+            rd8(0) != 0 || rd8(0x280000) != 5) {
+            fprintf(stderr, "FAIL mapper bank %u\n", bank);
+            free(rom); return 1;
+        }
+    }
+    wr8(0xA130FD, 6);
+    for (bank = 0; bank < 16; bank++) {
+        wr8(0xA130FF, bank);
+        if (rd8(0x380000) != bank || rd8(0x300000) != 6 || rd8(0x37FFFF) != (6 ^ 0xFF)) {
+            fprintf(stderr, "FAIL fixed 3.5 MB region\n");
+            free(rom); return 1;
+        }
+    }
+    free(rom);
+    printf("   PASS  SSF2 mapper: all 16 banks, boundaries and fixed region\n");
+    return 0;
+}
+
 int main(int argc, char **argv) {
     FILE *fp; char line[256]; int i;
     uint64_t sum_busy = 0, max_busy = 0, ticks_before = 0, busy_t = 0, busy_n = 0, max_t = 0, max_n = 0;
     unsigned nb = 0, over = 0, hang, over_t = 0, n_t = 0, n_n = 0;
+    if (argc == 2 && !strcmp(argv[1], "--self-test-mapper")) return mapper_self_test();
     if (argc < 4) { fprintf(stderr, "usage: bench68k rom.bin syms.txt ticks [replay.txt]\n"); return 2; }
     fp = fopen(argv[1], "rb"); if (!fp) { perror("rom"); return 1; }
     fseek(fp, 0, SEEK_END); rom_size = (size_t)ftell(fp); fseek(fp, 0, SEEK_SET);
     rom = malloc(rom_size); if (fread(rom, 1, rom_size, fp) != rom_size) return 1; fclose(fp);
+    mapper_enabled = rom_size >= 0x108 && !memcmp(rom + 0x100, "SEGA SSF", 8);
     load_syms(argv[2]);
     want = (uint64_t)atoll(argv[3]);
     if (argc > 4) {
@@ -229,6 +306,7 @@ int main(int argc, char **argv) {
     }
     if (getenv("B68K_FUNC")) for (i = 0; i < nsyms - 1; i++) if (!strcmp(syms[i].name, getenv("B68K_FUNC"))) {
         hf_lo = syms[i].addr; hf_hi = syms[i + 1].addr; hf_cyc = calloc((hf_hi - hf_lo) / 2 + 1, 8); }
+    if (getenv("B68K_EPISODE")) force_episode = atoi(getenv("B68K_EPISODE"));
     if (getenv("B68K_LEVEL")) force_level = atoi(getenv("B68K_LEVEL"));
     if (getenv("B68K_PROF")) sscanf(getenv("B68K_PROF"), "%u,%u", &prof_a, &prof_b);
     hang = getenv("B68K_HANG") ? (unsigned)atoi(getenv("B68K_HANG")) : 600;
@@ -237,6 +315,7 @@ int main(int argc, char **argv) {
     for (frame_no = 0; ticks <= want; frame_no++) {
         uint64_t busy;
         if (frame_no - last_tick_frame > hang) crash_report("hang (no game_tick)", m68k_get_reg(NULL, M68K_REG_PC));
+        if (force_episode && episode_addr) wr8(episode_addr, (unsigned)force_episode);
         if (force_level && level_addr) wr8(level_addr, (unsigned)force_level);
         /* menus before the first level read the pad directly: tap START */
         if (!ticks) pad = frame_no % 30 < 3 ? 0x80 : 0;
@@ -279,6 +358,7 @@ int main(int argc, char **argv) {
     if (hf_cyc) { uint64_t t = 0; uint32_t a; for (a = hf_lo; a < hf_hi; a += 2) t += hf_cyc[(a - hf_lo) >> 1];
         for (a = hf_lo; a < hf_hi; a += 2) if (hf_cyc[(a - hf_lo) >> 1] * 100 > t)
             printf("  pc %06x %5.1f%%\n", a, 100.0 * hf_cyc[(a - hf_lo) >> 1] / t); }
+    printf("validated DMA transfers: %u\n", dma_transfers);
     printf("ticks %llu hash %08x\n", (unsigned long long)want, rd32(hash_addr));
     return 0;
 }

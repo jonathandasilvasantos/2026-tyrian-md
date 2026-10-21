@@ -2,4 +2,5 @@
 1 49bca94e
 2 2255c48a
 3 dcf27475
-4 f7a01926
+# Episode 4 lowers the selected difficulty by one, as tyrian2.c does.
+4 fa9ae380
