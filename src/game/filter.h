@@ -1,3 +1,8 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Jonathan Santos and contributors.
+ * Portions adapted from OpenTyrian, Copyright (C) The OpenTyrian Development Team.
+ * See LICENSE and NOTICE.
+ */
 /* OpenTyrian event 44 / JE_filterScreen, at simulation rate. */
 #ifndef GAME_FILTER_H
 #define GAME_FILTER_H

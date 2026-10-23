@@ -1,128 +1,253 @@
 # Tyrian MD
 
-**Tyrian for the Sega Mega Drive / Genesis — Mega Drive version by Jonathan Santos.**
+**Tyrian on the Sega Mega Drive / Genesis — a port by Jonathan Santos.**
 
-A port of **Tyrian** (1995, Epic MegaGames) to stock Mega Drive hardware: 68000
-@ 7.67 MHz, 64 KB RAM, cartridge budget up to 64 Mbit (8 MB), no add-ons.
-The unified 8 MB SSF2 cartridge contains all four Tyrian 2.1 episodes. Built with SGDK 2.00 from
-the freeware Tyrian 2.1 data and the [OpenTyrian](https://github.com/opentyrian/opentyrian)
-source as the behavioral reference.
+An unofficial, work-in-progress port of the classic vertical shooter to the
+stock 68000, VDP, YM2612 and PSG. One **8 MiB / 64 Mbit SSF2 cartridge** contains
+the four episodes from Tyrian 2.1. No Sega CD or 32X is required.
 
-**Status:** one ROM contains all four Tyrian 2.1 episodes (62 levels),
-with episode selection and campaign progression that preserves equipment
-and cash. `EPISODE=1..4` sets the menu default and benchmark episode. The engine includes episode
-scripts, shops and destination choice, enemies and level events, front/rear
-weapons, equipped story specials and original ship combos, superbombs and asteroid-killer pickups, the 30 sidekicks (shop, movement, charge/ammo, HUD), generator power, HUD, the 41 songs converted to YM2612/PSG, sound
-effects and voices. Story starting funds follow the original episode; episode 4 also applies
-the original difficulty reduction. Six story difficulty choices, enemy scaling,
-score-based difficulty progression, starfields/Astral backgrounds, event/flare
-palette effects, the original story text/pictures/music cues, datacube reading with
-portraits and campaign availability, superpixel projectile/impact sparks, START pause and shop checkpoint passwords
-are implemented. Scripted ENGAGE equipment, the 21 SuperTyrian combos and
-the GALAGA lives/bonus-checkpoint loop and pickup-linked second ship
-(rotating gun, charge shots, armor and bombs) are also ported. Purple balls
-use the original per-power collection thresholds. Bonus portals preserve their
-original destination/music, and bonus stages advance after death. Level events
-now change/fade music and preserve 16-bit invulnerability durations. Low-armor
-warning cadence and level-timer display/sounds follow the original rules.
+![Tyrian MD title screen running in Genesis Plus GX](docs/screenshots/01-title.png)
 
-Validation covers script references for every episode, host unit tests and
-600-tick ROM/host replays at each episode's opening level on both NTSC and
-PAL. Both regions run the same 35 Hz simulation. Full campaigns,
-visual accuracy and hardware timing still need validation; dense scenes can
-slow down. See `agents.md` §8 for deviations and §9 for budgets.
+The port follows [OpenTyrian](https://github.com/opentyrian/opentyrian) for game
+behavior and rebuilds the engine around Mega Drive hardware. It uses portable C
+for the simulation, tile and sprite rendering on the VDP, streamed graphics,
+and music converted to FM/PSG.
 
-Still required: full mode selection, story text glow/picture pans, ending animation, the third
-(top) background layer, and the remaining OpenTyrian modes/features. The
-ROM uses the official Sega SSF2 mapper; code, tables and audio stay in the
-fixed lower 3.5 MB, while DMA maps graphics through the upper 512 KB.
+**This is not a finished release.** All four episode data sets are included in a
+local build, but full-campaign completion, visual fidelity and real-hardware
+validation are still in progress. Dense scenes currently slow down; sustained
+60 Hz is a target, not a verified claim.
 
-## Quick start
+## Source-only distribution
 
-Requirements (macOS/Homebrew; Linux equivalents work): `m68k-elf-gcc`, Java
-(rescomp), Python 3 with numpy, pytest and Pillow, SDL2 headers (music dump
-tool), `mednafen` to play.
+The engine and conversion tools are **GPL-2.0-or-later**. Original Tyrian data
+and converted assets are **not included** and are **not relicensed under GPL**.
+OpenTyrian and SGDK are downloaded separately rather than vendored here.
+
+There is intentionally **no complete ROM download** in this repository or its
+GitHub releases: a complete `.bin` embeds copyrighted game data. The setup
+script obtains the data locally from the source linked by OpenTyrian, verifies
+the archive checksum, and lets you build the cartridge yourself. See
+[LICENSE](LICENSE), [NOTICE](NOTICE) and the [asset policy](docs/licensing.md).
+
+`make release` creates your local ROM in [`release/`](release/README.md).
+The ROM and generated build metadata are ignored by Git.
+
+## Screenshots
+
+These are direct video captures of the ROM in **Genesis Plus GX**, using the
+normal episode-selection menus. They are not PC screenshots or concept art.
+Original Tyrian artwork remains the property of its creators.
+
+| Episode 1 — Escape | Episode 2 — Treachery |
+| --- | --- |
+| ![Episode 1 gameplay](docs/screenshots/episode-1-combat.png) | ![Episode 2 gameplay](docs/screenshots/episode-2-combat.png) |
+| **Episode 3 — Mission: Suicide** | **Episode 4 — An End to Fate** |
+| ![Episode 3 gameplay](docs/screenshots/episode-3-combat.png) | ![Episode 4 gameplay](docs/screenshots/episode-4-combat.png) |
+
+| Episode 1 — opening | Episode 4 — opening |
+| --- | --- |
+| ![Episode 1 opening scene](docs/screenshots/episode-1-opening.png) | ![Episode 4 opening scene](docs/screenshots/episode-4-opening.png) |
+
+Capture instructions and provenance are in
+[docs/screenshots/README.md](docs/screenshots/README.md).
+
+## Build
+
+### Requirements
+
+The current development setup is macOS with Homebrew. Other systems need
+compatible tools on `PATH`; a Windows-native build is not provided.
+
+- Git, GNU Make, a native C compiler and `curl`.
+- `m68k-elf-gcc`, binutils and libgcc for the bare-metal 68000 target.
+- A Java runtime for SGDK's resource compiler.
+- Python **3.11 or newer**, with the packages in `requirements.txt`.
+- SDL2 development headers and `sdl2-config` for the music conversion helper.
+- An SSF2-capable Mega Drive emulator or compatible flash cartridge to play.
+
+On the tested Homebrew setup:
 
 ```sh
-git clone --recurse-submodules git@github.com:jonathandasilvasantos/2026-tyrian-md.git
+brew install m68k-elf-gcc sdl2 openjdk python
+```
+
+Make sure `java`, `m68k-elf-gcc` and `sdl2-config` are on `PATH`. Follow
+Homebrew's displayed PATH instructions for its keg-only Java installation.
+
+### Download and build
+
+```sh
+git clone https://github.com/jonathandasilvasantos/2026-tyrian-md.git
 cd 2026-tyrian-md
-git clone --depth 1 --branch v2.00 https://github.com/Stephane-D/SGDK.git sgdk
-make setup-sgdk      # patches SGDK 2.00's prebuilt lib for GCC 15
-make rom             # all episodes: builds the unified out/rom.bin
-make rom EPISODE=2   # same cartridge, episode 2 selected by default
-./play.sh            # fullscreen in mednafen (./play.sh demo: self-playing ROM)
+
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+
+make bootstrap
+make setup-sgdk
+make release
 ```
 
-`make rom` downloads Tyrian 2.1 (freeware) into `tyrian-data/` on first use
-and converts everything (`make gen`, `make music`); nothing from the original
-game is stored in this repository.
+The resulting cartridge is **`release/tyrian-md.bin`**; the working build is
+`out/rom.bin`. `release/SHA256SUMS` records the checksum and
+`release/build-info.json` records the source revision and dependency pins.
+Builds made with uncommitted changes are marked accordingly.
 
-`./play.sh` creates `out/rom-mednafen.bin` for Mednafen 1.32, whose
-[cartridge database](https://github.com/libretro-mirrors/mednafen-git/blob/master/src/md/cart/cart.cpp)
-selects SSF2 by product code rather than the standard `SEGA SSF` header.
-Only that emulator copy changes the product code; `out/rom.bin` retains
-Tyrian's identity for flashcarts and emulators supporting the SSF header.
+`make bootstrap` downloads:
 
-Controls: B fires the equipped weapons and infinite-ammo sidekicks, C
-changes rear weapon mode, A fires the left limited-ammo sidekick, and Z
-fires the right one on a 6-button pad. On a 3-button pad A fires both
-limited-ammo sidekicks. Z (A on a 3-button pad) launches/recalls the right
-front-mounted attachment. A/Z also release held superbombs; START pauses
-and resumes. C in the shop displays a checkpoint password; select
-Continue on the title menu to enter it (L/R cursor, up/down symbol, B next,
-A/START load, C cancel). The 48-character code stores equipment, cash,
-difficulty and episode progress, with a checksum for transcription errors.
-Ship combos use the original directional sequences and B. The Talon
-invulnerability combo is down, up, down, up+B and costs all shield (minimum
-four points). The old weapon/power debug shortcuts are removed.
+| Dependency | Local directory | Version / purpose |
+| --- | --- | --- |
+| OpenTyrian | `open-tyrian/` | Pinned revision; behavioral reference and host-side LDS/OPL conversion helper |
+| SGDK | `sgdk/` | **v2.00**, pinned commit; Genesis runtime, resource compiler and build support |
+| Tyrian 2.1 freeware data | `tyrian-data/` | SHA-256-verified archive; original graphics, music, levels and text |
 
-## Layout
+All pins and download locations are in
+[`tools/dependencies.lock.json`](tools/dependencies.lock.json). Existing
+checkouts at a different revision are left untouched and reported as an error.
+Downloaded dependency trees, data, caches and generated resources stay outside
+Git. The downloader excludes the original DOS executables.
 
-| Path | What |
-|---|---|
-| `src/game/` | portable simulation (enemies, events, weapons, script, shop) — compiles for the ROM and the host |
-| `src/` | Mega Drive side: streaming backgrounds, sprite list, DMA queue, HUD, menus, sound |
-| `tools/` | Python converters (`tyrdata/`), `gen.py`, music converter, 68000 benchmark (`bench68k/`) |
-| `platform/host/` | host build of the simulation (replays, parity) |
-| `test/` | unit tests, converter tests, replays |
-| `docs/data_formats.md` | Tyrian PC data formats |
-| `agents.md` | project rules, adaptations log, budgets, roadmap |
-| `open-tyrian/` | OpenTyrian (submodule, read-only reference) |
+`make setup-sgdk` applies local compatibility adjustments to the downloaded SGDK
+2.00 toolchain for modern GCC: stale LTO metadata/flags are removed and its
+makefile is adjusted for dependency files. These changes are never vendored or
+pushed upstream.
 
-## Tests
+The first build converts all four episodes, all 41 music tracks and the sound
+effects. It takes longer than an incremental build. Conversion output is
+regenerated under `src/gen_data/` and `res/`; do not edit it by hand.
+
+### Common commands
 
 ```sh
-make test          # converters, all four episode unit tests/replays, mapper
-make parity EPISODE=2 # one episode against its golden replay
-make bench-68k     # CPU load, deepest stack, per-function profile
-make bench-levels  # frames used per level (manual, minutes)
+make rom                 # Unified cartridge in out/rom.bin
+make rom EPISODE=2       # Same four-episode cartridge; episode 2 is the menu default
+make release             # Build and package a complete ROM locally in release/
+make host                # Native headless build of the same simulation
+make test                # Converter/unit tests, ROM checks and host/68000 parity
+make bench-68k           # Short 68000 timing/stack profile
+make parity EPISODE=4    # One episode's opening replay against its golden state
+make clean               # Remove working build outputs (out/)
 ```
 
-`make parity-sidekicks` checks six companion loadouts, including charge,
-finite ammo, orbiting satellites, both companion sprite sizes and Plasma
-Storm's large artwork/collision bounds, plus two superbomb replays.
-`make parity-specials` checks eight special loadouts in PAL and NTSC through
-`make test`; their cooldown, pulse, flare and projectile states are hashed. The player/bullet palette stays
-identical across the four episodes. Star simulation and its initialization
-RNG calls are checked on both CPUs; the renderer uses spare sprite slots
-after gameplay objects and coarse background occlusion.
+`make clean` preserves downloaded dependencies, original data and local release
+files. Full-level timing sweeps (`make bench-levels`) are deliberately manual.
 
-`make parity` runs the ROM headless on a 68000 emulator (Musashi) and checks it
-reaches the same game state as the host build on the same input replay.
-The default 600-tick replay must also match the episode hash in
-`test/replays/boot.hashes`. The runner holds the current level after death
-or completion so both builds compare the same ticks.
+### Run
 
-## Credits
+Load `release/tyrian-md.bin` in an emulator that supports an **8 MiB Sega SSF2
+mapper cartridge**. A plain 4 MiB linear-ROM loader is insufficient. Real
+hardware requires a flash cartridge with compatible mapper support.
 
-- Mega Drive version: Jonathan Santos
-- Tyrian (1995, Epic MegaGames): Jason Emery (programming, design), Daniel Cook
-  (artwork), Alexander Brandon (music, story), Andreas Molnar (LOUDNESS sound
-  system, music) and the rest of the team listed in the game's credits
-- Title art: the original title screen redrawn with "MD" (generated with
-  Google Gemini image generation from the PC title, `res/art/title_md.png`)
+For Mednafen on macOS:
 
-## Licenses
+```sh
+brew install mednafen
+./play.sh
+```
 
-Code derived from OpenTyrian is GPL-2.0. Tyrian 2.1 data is freeware by Jason
-Emery; graphics by Daniel Cook. Non-commercial fan project.
+`play.sh` prepares an ignored compatibility copy for Mednafen's product-code
+mapper lookup. The normal cartridge retains its Tyrian identity. Mednafen's
+pad mapping can be configured with **Alt+Shift+1**; **Esc** exits.
+
+## Controls
+
+| Input | Action |
+| --- | --- |
+| D-pad | Move; enter original ship-combo directions |
+| B | Fire main weapons and infinite-ammo sidekicks |
+| C | Switch rear-weapon mode |
+| A | Activate the left finite-ammo sidekick |
+| Z, six-button pad | Activate the right finite-ammo sidekick / control its attachment |
+| A, three-button pad | Activate both finite-ammo sidekicks |
+| A / Z | Also release stocked superbombs |
+| START | Pause / resume |
+
+In menus, use the D-pad and **B or START** to select; **C** returns where
+available. In a shop, **C** displays a 48-character checkpoint password.
+Choose **Continue** at the title menu to enter it: left/right moves the cursor,
+up/down changes a symbol, B advances, and A/START loads the code.
+
+Passwords preserve equipment, cash, difficulty and episode progress and check
+for transcription errors. They replace battery saves; the cartridge's ROM
+mapping occupies the usual SRAM address range.
+
+## What is implemented
+
+- Four Tyrian 2.1 episodes, **62 level data sets**, episode selection and
+  campaign progression carrying equipment and cash between episodes.
+- Original event scripts, enemy behavior, front/rear weapons and power levels,
+  shops and trade-in economy, generators, shields and armor.
+- All **30 sidekicks**, charge/ammo behavior, superbombs, equipped specials,
+  ship combos and scripted ENGAGE/GALAGA bonus behavior, including the linked
+  second ship and its rotating gun/charge shots.
+- Story text/pictures/music cues, datacube collection and reading with portraits,
+  secret bonus destinations, level timers and low-armor warning cadence.
+- Scrolling backgrounds, starfields/Astral effects, palette filters, HUD,
+  explosions and projectile sparks within the hardware's limits.
+- **41 music tracks** converted from LDS/OPL2 to YM2612/PSG, plus PCM effects
+  and voices through XGM2.
+- A shared deterministic simulation for the host and 68000 builds, tested on
+  NTSC and PAL timing models.
+
+### Remaining work and adaptations
+
+The third/top background layer, per-enemy palette filters, story text glow,
+picture pans, ending animation/credits, full mode selection, general two-player
+play, Destruct, networking, jukebox and setup/configuration remain incomplete
+or pending. The fifth episode is not part of the Tyrian 2.1 data set used here.
+No missing data-dependent content is invented.
+
+The renderer targets **320×224** with a compact HUD. Original PC coordinates
+and gameplay tables are retained, while palettes, sprite composition and
+render scheduling are adapted for the VDP. The simulation runs at **35 ticks/s**
+on both 60 Hz NTSC and 50 Hz PAL displays, close to the original PC clock;
+movement is interpolated between ticks. This does not guarantee that heavy
+scenes meet the display-frame budget.
+
+Music timbres, palette quantization, entity/effect caps and some presentation
+choices differ from the PC. The detailed adaptation log, memory/VRAM budgets,
+measurements and roadmap are maintained in [`agents.md`](agents.md).
+
+## Testing and hardware limits
+
+`make test` checks the converters, portable simulation, cartridge layout,
+checksum, SSF2 bank mapping, stack reserve and recorded host/68000 state parity.
+It covers the four openings and selected sidekick, special, combo, bonus,
+checkpoint and scripted-mode cases in NTSC and PAL.
+
+The 68000 runner uses an externally downloaded, pinned **Musashi** core. It
+measures target instruction work; it does not model every VDP DMA/FIFO stall or
+Z80 interaction. Short passing replays do not prove full-campaign completion,
+visual accuracy or worst-case 60 Hz operation. Hardware testing and targeted
+emulator profiling remain necessary.
+
+## Project layout
+
+| Path | Contents |
+| --- | --- |
+| `src/game/` | Portable gameplay simulation; no SGDK headers |
+| `src/` | Genesis rendering, DMA, input, menus, HUD and sound |
+| `tools/` | Download/bootstrap scripts, data converters, validation and capture tools |
+| `platform/host/` | Native replay runner using the same game logic |
+| `platform/genesis/` | Genesis build integration |
+| `test/` | Unit/converter tests and recorded input/golden states |
+| `docs/` | Data formats, licensing notes and documentary screenshots |
+| `release/` | Instructions and ignored local cartridge output |
+
+## Credits and license
+
+Mega Drive version by **Jonathan Santos**. Original Tyrian programming/design
+by **Jason Emery**, artwork by **Daniel Cook**, music by **Alexander Brandon**
+and **Andreas Molnar**, and contributions by the rest of the original team.
+Originally developed by Eclipse Software and published by Epic MegaGames.
+
+This port builds on **The OpenTyrian Development Team's** work and uses
+**Stephane Dallongeville's SGDK**. Names and trademarks belong to their
+respective owners; this fan port is not endorsed by Sega or the original team.
+
+Port source: **GPL-2.0-or-later**, see [LICENSE](LICENSE).
+Dependencies retain their own licenses, see [NOTICE](NOTICE).
+Game data and artwork depicted in screenshots are not covered by that GPL;
+see [licensing and asset policy](docs/licensing.md).

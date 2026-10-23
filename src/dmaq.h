@@ -1,3 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Jonathan Santos and contributors.
+ * See LICENSE and NOTICE.
+ */
 /* dmaq.h — lean VRAM DMA queue for the per-frame tile uploads. */
 #ifndef DMAQ_H
 #define DMAQ_H

@@ -1,3 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Jonathan Santos and contributors.
+ * See LICENSE and NOTICE.
+ */
 /* sound.h — sound effects through SGDK's XGM2 driver (3 PCM channels). */
 #ifndef SOUND_H
 #define SOUND_H

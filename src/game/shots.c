@@ -1,3 +1,8 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Jonathan Santos and contributors.
+ * Portions adapted from OpenTyrian, Copyright (C) The OpenTyrian Development Team.
+ * See LICENSE and NOTICE.
+ */
 /* shots.c — player shot creation and movement, ported from OpenTyrian
  * shots.c (player_shot_create, player_shot_move_and_draw).
  * and the shot-versus-enemy part of tyrian2.c:JE_main.

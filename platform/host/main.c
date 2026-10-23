@@ -1,3 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Jonathan Santos and contributors.
+ * See LICENSE and NOTICE.
+ */
 /* Host build of src/game: runs a pad replay headless and prints the state
  * hash, so the same replay can be compared with the ROM (agents.md §5).
  *

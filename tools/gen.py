@@ -335,20 +335,42 @@ def gen_sounds(out, res_dir):
     return res
 
 
-def gen_title(out, art=os.path.join("res", "art", "title_md.png")):
-    """Title screen art (res/art/title_md.png: the original title screen
-    redrawn with "MD", made with Gemini image generation from the PC title)
-    -> 320x224, quantized per cell to palette lines 0, 1 and 3 (line 2 is
-    the menu font), deduplicated cells and a 40x28 tilemap."""
+def title_image():
+    """Rebuild the title from locally downloaded PC data, never a bundled asset.
+
+    OpenTyrian JE_titleScreen uses picture 4 and PLANET_SHAPES frame 146
+    at its final resting position (11, 4), after the PC's logo animation.
+    Pad to 224 lines and add a small original block-letter MD.
+    """
     from PIL import Image
-    im = Image.open(art).convert("RGB")
-    w, h = im.size
-    im = im.resize((320, round(320 * h / w)), Image.LANCZOS)
-    top = (im.size[1] - 224) // 2
-    im = im.crop((0, top, 320, top + 224))
+    pixels, pal = shapes.load_pic(4)
+    image = np.frombuffer(pixels, np.uint8).reshape(200, 320).copy()
+    logo = shapes.decode_sprite_table(shapes.main_shape_tables()[3])[146]
+    for y, row in enumerate(logo):
+        for x, color in enumerate(row):
+            if color is not None and x + 11 < 320 and y + 4 < 200:
+                image[y + 4, x + 11] = color
+    colors = np.array(palette.load_palettes()[pal], np.uint8)
+    rgb_image = np.pad(colors[image], ((12, 12), (0, 0), (0, 0)))
+    letters = ("10001", "11011", "10101", "10101", "10001", "10001", "10001"), (
+        "11110", "10001", "10001", "10001", "10001", "10001", "11110")
+    for letter, glyph in enumerate(letters):
+        for y, row in enumerate(glyph):
+            for x, bit in enumerate(row):
+                if bit == "1":
+                    dx, dy = 258 + letter * 18 + x * 3, 112 + y * 3
+                    rgb_image[dy:dy + 3, dx:dx + 3] = (238, 238, 238)
+    return Image.fromarray(rgb_image)
+
+
+def gen_title(out):
+    """320x224 title, quantized to PAL0/1/3; PAL2 holds the menu font."""
+    from PIL import Image
+    im = title_image()
     # first to 256 colors so the cell quantizer works on an indexed image
     pim = im.quantize(256, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
-    rgb = np.array(pim.getpalette()[:768], np.float64).reshape(256, 3)
+    colors = pim.getpalette()[:768]
+    rgb = np.array(colors + [0] * (768 - len(colors)), np.float64).reshape(256, 3)
     bmp = np.array(pim, np.uint8)
     cs = raster.cells(bmp)
     hists = []
@@ -371,6 +393,7 @@ def gen_title(out, art=os.path.join("res", "art", "title_md.png")):
     for p, line in zip(pals, lines):
         wds = [0] + [palette.to_cram(tuple(int(x) for x in c)) for c in p]
         cram[line * 16:line * 16 + len(wds)] = wds
+    assert len(cell_ids) <= 1328, "Title plus menu font exceeds VRAM"
     h = (emit.HEADER + "#ifndef GEN_TITLE_H\n#define GEN_TITLE_H\n#include <types.h>\n"
          f"#define TITLE_TILES {len(cell_ids)}\n"
          "/* 40x28 tilemap: attrs with the tile index relative to the loaded tiles;\n"

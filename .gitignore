@@ -1,6 +1,7 @@
 out/
 tyrian-data/
 sgdk/
+open-tyrian/
 src/boot/sega.s
 res/*.h
 src/gen_data/
@@ -11,4 +12,12 @@ res/music/
 __pycache__/
 .pytest_cache/
 res/resources.rs
-!res/art/
+res/art/
+.venv/
+.DS_Store
+*.pyc
+release/*.bin
+release/*.zip
+release/*.tar.gz
+release/build-info.json
+release/SHA256SUMS

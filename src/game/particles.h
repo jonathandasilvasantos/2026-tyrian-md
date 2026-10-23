@@ -1,3 +1,8 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Jonathan Santos and contributors.
+ * Portions adapted from OpenTyrian, Copyright (C) The OpenTyrian Development Team.
+ * See LICENSE and NOTICE.
+ */
 /* JE_doSP / JE_drawSP superpixels. Cosmetic cap: 64 (PC 101). */
 #ifndef GAME_PARTICLES_H
 #define GAME_PARTICLES_H

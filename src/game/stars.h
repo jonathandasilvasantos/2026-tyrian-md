@@ -1,3 +1,8 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Jonathan Santos and contributors.
+ * Portions adapted from OpenTyrian, Copyright (C) The OpenTyrian Development Team.
+ * See LICENSE and NOTICE.
+ */
 /* OpenTyrian backgrnd.c starfield. Positions intentionally wrap at 16 bits. */
 #ifndef GAME_STARS_H
 #define GAME_STARS_H

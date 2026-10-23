@@ -1,3 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Jonathan Santos and contributors.
+ * See LICENSE and NOTICE.
+ */
 /* Per-pixel PC index filters become CRAM changes. Quantization has already
  * merged some PC colors; use a build-time inverse match for each CRAM word.
  * Keep PAL2 text black/white so the window HUD remains legible. */

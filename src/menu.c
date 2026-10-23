@@ -1,3 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Jonathan Santos and contributors.
+ * See LICENSE and NOTICE.
+ */
 /* menu.c — text screens: the upgrade shop (with the destination choice of
  * ]G) and simple message screens.  Plane A, Tyrian's SMALL_FONT, palette
  * line 2 (14 black, 15 white). */

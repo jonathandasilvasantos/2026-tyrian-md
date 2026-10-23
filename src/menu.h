@@ -1,3 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Jonathan Santos and contributors.
+ * See LICENSE and NOTICE.
+ */
 /* menu.h — text screens with Tyrian's SMALL_FONT (2 cells per char). */
 #ifndef MENU_H
 #define MENU_H

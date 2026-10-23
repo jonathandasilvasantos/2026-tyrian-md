@@ -1,3 +1,8 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Jonathan Santos and contributors.
+ * Portions adapted from OpenTyrian, Copyright (C) The OpenTyrian Development Team.
+ * See LICENSE and NOTICE.
+ */
 /* enemy.h — enemies, enemy shots and explosions (OpenTyrian tyrian2.c
  * JE_drawEnemy/JE_makeEnemy/JE_newEnemy, varz.c JE_setupExplosion*). */
 #ifndef GAME_ENEMY_H

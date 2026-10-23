@@ -1,3 +1,8 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Jonathan Santos and contributors.
+ * Portions adapted from OpenTyrian, Copyright (C) The OpenTyrian Development Team.
+ * See LICENSE and NOTICE.
+ */
 /* rng.h — game RNG (replaces OpenTyrian's mt_rand; agents.md §8). */
 #ifndef GAME_RNG_H
 #define GAME_RNG_H

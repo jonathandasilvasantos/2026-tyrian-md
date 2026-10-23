@@ -1,3 +1,8 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Jonathan Santos and contributors.
+ * Portions adapted from OpenTyrian, Copyright (C) The OpenTyrian Development Team.
+ * See LICENSE and NOTICE.
+ */
 /* 35 simulation ticks/sec on 60 Hz NTSC and 50 Hz PAL displays.
  * Render interpolation retains the engine's 0..11 fractional convention. */
 #ifndef GAME_TIMING_H

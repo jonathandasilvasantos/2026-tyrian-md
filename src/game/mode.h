@@ -1,3 +1,8 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Jonathan Santos and contributors.
+ * Portions adapted from OpenTyrian, Copyright (C) The OpenTyrian Development Team.
+ * See LICENSE and NOTICE.
+ */
 /* Scripted ENGAGE/GALAGA modes (tyrian2.c:JE_loadMap, mainint.c). */
 #ifndef GAME_MODE_H
 #define GAME_MODE_H

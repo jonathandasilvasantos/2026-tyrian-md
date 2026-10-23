@@ -1,3 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Jonathan Santos and contributors.
+ * See LICENSE and NOTICE.
+ */
 /* main.c — Genesis entry point and game flow (hardware side of agents.md §5):
  * episode script -> shops and levels; a level runs until it ends or the
  * player dies (then it is replayed with the items it started with). */

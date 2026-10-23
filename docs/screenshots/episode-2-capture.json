@@ -1,0 +1,23 @@
+{
+  "emulator": "Genesis Plus GX (libretro)",
+  "rom_sha256": "ceb9e3e6f62918e3e09acbee03c18a48f57e4284ed9f0e6ba35c7f94995f14ba",
+  "core_revision": "60bee4c724859710ce05672239e5b601ad01382e",
+  "episode": 2,
+  "frames": 951,
+  "pixel_format": 2,
+  "captures": [
+    {
+      "file": "episode-2-opening.png",
+      "frame": 471,
+      "width": 320,
+      "height": 224
+    },
+    {
+      "file": "episode-2-combat.png",
+      "frame": 951,
+      "width": 320,
+      "height": 224
+    }
+  ],
+  "method": "normal menu input and direct emulator video callback; no ROM or RAM patches"
+}

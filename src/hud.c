@@ -1,3 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Jonathan Santos and contributors.
+ * See LICENSE and NOTICE.
+ */
 /* hud.c — in-game HUD drawn on the window plane: the right panel (x >=
  * 272, 6 columns) and the bottom bar (y >= 208, 2 rows) around the PC
  * playfield.  Tyrian's TINY_FONT (one cell per character) replaces SGDK's

@@ -1,3 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Jonathan Santos and contributors.
+ * See LICENSE and NOTICE.
+ */
 /*
  * lds_dump — run OpenTyrian's Loudness (LDS) player on one song of
  * music.mus and log every OPL2 register write with its tick number.

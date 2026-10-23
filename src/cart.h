@@ -1,3 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Jonathan Santos and contributors.
+ * See LICENSE and NOTICE.
+ */
 /* SSF2 cartridge: lower 3.5 MB fixed, upper 512 KB used for graphics DMA. */
 #ifndef CART_H
 #define CART_H

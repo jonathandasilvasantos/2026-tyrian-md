@@ -1,3 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Jonathan Santos and contributors.
+ * See LICENSE and NOTICE.
+ */
 /* bench68k — headless 68000 runner/profiler for out/rom.bin.
  *
  * Adapted from ~/projects/sgdk/tools/bench68k.  Runs the ROM on the Musashi

@@ -1,3 +1,8 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Jonathan Santos and contributors.
+ * Portions adapted from OpenTyrian, Copyright (C) The OpenTyrian Development Team.
+ * See LICENSE and NOTICE.
+ */
 /* shop.h — upgrade shop economy (OpenTyrian game_menu.c JE_cashLeft,
  * mainint.c JE_getCost / weapon_upgrade_cost): trade-in at full value. */
 #ifndef GAME_SHOP_H

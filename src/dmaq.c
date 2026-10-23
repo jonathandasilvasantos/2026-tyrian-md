@@ -1,3 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Jonathan Santos and contributors.
+ * See LICENSE and NOTICE.
+ */
 /* dmaq.c — lean VRAM DMA queue.
  *
  * SGDK's DMA_queueDma costs ~700 cycles per entry on the 68000 (bank split

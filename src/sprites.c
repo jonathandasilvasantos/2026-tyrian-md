@@ -1,3 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Jonathan Santos and contributors.
+ * See LICENSE and NOTICE.
+ */
 /* sprites.c — builds the VDP sprite table every frame (no SGDK sprite
  * engine: it costs far more CPU than this direct list).
  *

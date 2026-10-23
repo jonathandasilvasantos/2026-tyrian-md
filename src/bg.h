@@ -1,3 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Jonathan Santos and contributors.
+ * See LICENSE and NOTICE.
+ */
 /* bg.h — streaming background layers (agents.md §4 Backgrounds). */
 #ifndef BG_H
 #define BG_H

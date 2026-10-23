@@ -1,3 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Jonathan Santos and contributors.
+ * See LICENSE and NOTICE.
+ */
 /* bg.c — streaming background layers.
  *
  * Layer 1 is drawn on plane B, layer 2 on plane A (64x32-cell planes).

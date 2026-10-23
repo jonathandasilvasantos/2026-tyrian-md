@@ -1,0 +1,28 @@
+Tyrian MD — Sega Mega Drive / Genesis port
+Copyright (C) 2026 Jonathan Santos and contributors
+
+The simulation and data readers include work adapted from OpenTyrian.
+Copyright (C) The OpenTyrian Development Team.
+Source code in this repository is licensed under GPL-2.0-or-later; see LICENSE.
+Downloaded dependencies retain their own licenses and copyright notices.
+
+Tyrian: Jason Emery, Daniel Cook, Alexander Brandon, Andreas Molnar,
+Eclipse Software / Epic MegaGames and the original game's credited team.
+Tyrian game data is not covered by the engine's GPL. No original or converted
+game data, complete ROM, or upstream engine/toolchain source tree is included.
+
+Build-time and runtime dependencies (downloaded separately):
+- OpenTyrian: GPL-2.0-or-later; its DOSBox OPL emulator is LGPL-2.1-or-later.
+- SGDK 2.00: MIT, Copyright (c) 2019 Stephane Dallongeville.
+  The SGDK MIT notice is reproduced in LICENSES/SGDK-MIT.txt for local builds.
+- GCC/libgcc: GCC licensing and GCC Runtime Library Exception, as distributed
+  with the user's toolchain. SGDK's bundled third-party components retain their
+  own notices. This project does not replace those licenses.
+- Musashi: Karl Stenerud's permissive license; downloaded for headless tests.
+- Genesis Plus GX: its upstream license; optional external screenshot tool.
+
+Documentation screenshots are captures of this port running in an emulator.
+They depict copyrighted Tyrian artwork and are provided only to document the
+port. They are not an asset pack and are not licensed under the engine GPL.
+Tyrian, Mega Drive and Genesis names/trademarks belong to their respective
+owners. This is an unofficial, unaffiliated fan port.

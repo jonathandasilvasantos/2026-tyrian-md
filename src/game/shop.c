@@ -1,3 +1,8 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Jonathan Santos and contributors.
+ * Portions adapted from OpenTyrian, Copyright (C) The OpenTyrian Development Team.
+ * See LICENSE and NOTICE.
+ */
 /* shop.c — upgrade shop economy.  The PC sells the owned item back at full
  * price when a category is opened (cash = cash * 2 - JE_cashLeft) and
  * charges the new item plus its power upgrades on leaving. */

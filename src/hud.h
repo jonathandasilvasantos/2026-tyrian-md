@@ -1,3 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Jonathan Santos and contributors.
+ * See LICENSE and NOTICE.
+ */
 /* hud.h — in-game HUD on the window plane (right panel + bottom bar). */
 #ifndef HUD_H
 #define HUD_H

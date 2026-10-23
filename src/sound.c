@@ -1,3 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Jonathan Santos and contributors.
+ * See LICENSE and NOTICE.
+ */
 /* sound.c — plays the game's sound queue (tyrian2.c "The Sound Routine")
  * on the XGM2 driver's 3 PCM channels.  The PC mixes 8 channels; here
  * each PC channel goes to a fixed PCM channel with a priority: voices (PC

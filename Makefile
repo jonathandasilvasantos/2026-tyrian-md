@@ -28,9 +28,12 @@ BENCH_TICKS ?= 600
 REPLAY      ?= test/replays/boot.txt
 MUSASHI_REV := 313ebf1bd9f4d0d93341eb5ce21fd8a119e9dbdd
 
-.PHONY: all music setup-sgdk gen rom rom-demo host unit-test py-test test bench-68k parity parity-episodes parity-sidekicks parity-checkpoint parity-specials parity-combos parity-story parity-cubes parity-modes parity-bonus parity-pal clean
+.PHONY: all bootstrap music setup-sgdk gen rom rom-demo release host unit-test py-test test bench-68k parity parity-episodes parity-sidekicks parity-checkpoint parity-specials parity-combos parity-story parity-cubes parity-modes parity-bonus parity-pal clean
 
 all: rom
+
+bootstrap:
+	@python3 tools/bootstrap.py
 
 # ── SGDK setup ───────────────────────────────────────────────────────────────
 # ./sgdk is SGDK 2.00 (git tag v2.00).  Its prebuilt libmd.a carries LTO IR
@@ -53,7 +56,7 @@ setup-sgdk:
 
 # ── Generated data ──────────────────────────────────────────────────────────
 gen:
-	@test -f tyrian-data/palette.dat || ./open-tyrian/get_data.sh tyrian-data
+	@test -f tyrian-data/palette.dat || python3 tools/bootstrap.py --data-only
 	@test -f out/music/song_41.vgm || $(MAKE) --no-print-directory music
 	@mkdir -p res/music && cp -p out/music/song_*.vgm res/music/
 	@python3 tools/gen.py src/gen_data --episode $(EPISODE)
@@ -83,6 +86,10 @@ rom: gen
 	    open(f,'wb').write(d + b'\xff'*(t-len(d))); \
 	    u=len(d.rstrip(b'\xff').rstrip(b'\x00')); print(f'   ROM: {u} bytes used of 8 MB ({100*u//t}%)')"
 	@python3 tools/fix_checksum.py $(ROM)
+
+# The complete ROM embeds copyrighted assets. Keep it local, outside Git.
+release: rom
+	@python3 tools/package_release.py
 
 rom-demo:
 	@rm -rf out/src

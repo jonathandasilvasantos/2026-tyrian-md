@@ -1,3 +1,8 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Jonathan Santos and contributors.
+ * Portions adapted from OpenTyrian, Copyright (C) The OpenTyrian Development Team.
+ * See LICENSE and NOTICE.
+ */
 /* rng.c — xorshift32.  OpenTyrian uses a Mersenne Twister; only the
  * distribution matters to gameplay, and MT costs far too much on a 68000. */
 #include "rng.h"

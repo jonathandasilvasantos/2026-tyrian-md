@@ -165,6 +165,11 @@ state hashes per frame).
 4. Check budgets (ROM size, RAM table, worst-frame cycles).
 5. Update §8/§9 when an adaptation or budget changes.
 6. Commit only when asked. No temporary test scripts left behind.
+7. Public distribution is source-only: keep original/converted assets, upstream
+   dependency trees and complete ROMs out of Git and GitHub release uploads.
+   Use `make bootstrap` to obtain dependencies/data, `make release` for local
+   output, and `python3 tools/audit_public.py --history` before publishing.
+   Documentary emulator screenshots stay in docs/screenshots with attribution.
 
 Agents: do not run long sweeps (all levels × all replays) automatically;
 the user runs them.
@@ -371,11 +376,17 @@ Every intentional difference from OpenTyrian, one line each:
 - HUD bottom bar — event 16 window texts (100 simulation ticks, as on PC)
   and the boss bar (event 79,
   most damaged linked enemy, as draw_boss_bar) instead of the PC's top bar.
-- Title screen — "Tyrian MD": the PC title (pic 4 + PLANET_SHAPES logo)
-  redrawn with "MD" via Gemini image generation (res/art/title_md.png,
-  converted by gen_title), credits: Mega Drive version by Jonathan Santos,
-  Jason Emery, Daniel Cook, Alexander Brandon, Andreas Molnar, Epic
-  MegaGames. SMALL_FONT's 12-px M/W are squeezed to 8 px.
+- Title screen — original PC picture 4 and PLANET_SHAPES logo 146 at its
+  final resting position (11,4), padded to 224 lines, with a small MD label —
+  build from locally downloaded data without redistributing a standalone title
+  image — static logo replaces the PC entrance animation; credits and menu font
+  retain the port's existing layout. The former generated/redrawn PNG is removed
+  from the public repository and history.
+- Public packaging — GPL-2.0-or-later source with copyright/dependency notices;
+  pinned bootstrap scripts download OpenTyrian, SGDK and SHA-256-verified Tyrian
+  2.1 data separately — do not relicense or redistribute original/converted
+  assets — complete cartridges are generated locally in ignored release/ output;
+  only documentary emulator screenshots are published, with separate attribution.
 - Sprite cache — keep 20 big-enemy slots and fit up to 88 small-piece
   slots into VRAM left by the current level (48 at episode 2's maximum) — its
   backgrounds need 951 resident tiles — extra distinct pieces can be
@@ -461,6 +472,12 @@ Fill and keep current.
     Warning delay and two timer phases add three bytes to GameState (four
     after alignment); HUD timer cache is two bytes and level-name pointer four.
     Net linked BSS growth for warnings/timer: 12 bytes. No VRAM/heap growth.
+- Publication build (2026-10-23): the locally reconstructed title uses 850
+  tiles rather than the former bundled artwork's 1,103, saving 8,192 fixed-ROM
+  bytes including alignment. Title + 192 menu-font + 16 system tiles = 1,058
+  tiles, below 1,536. No additional runtime RAM or gameplay structures. Fresh
+  and existing dependency builds produce identical ROM SHA-256; the complete
+  cartridge remains local-only under the source-only distribution policy.
 - VRAM map: (region — tiles/bytes)
   - tiles 0-15 SGDK system; 16.. background slot pool, sized per level by
     `BG_POOL_NEED` (684 for 1.9: worst 30-row window, both layers); then free
@@ -483,9 +500,9 @@ Fill and keep current.
     text pages at 208..567, face 568..630. Nine lines use 45 hardware sprites,
     five / 160 pixels per scanline; no gameplay objects share the screen.
 - Entity caps: enemies 100, enemy shots 60, player shots 64, explosions 64, cosmetic superpixels 64.
-- ROM: unified cartridge (2026-10-21): fixed .text 3,640,064 bytes,
+- ROM: unified cartridge (2026-10-21): fixed .text 3,631,872 bytes,
   initial .data 90; far graphics and extra option/weapon frames bring the used physical ROM
-  end to 7,871,424 bytes, padded to 8 MB (93%). Password codec/UI add ~5.9 KB of code/tables. The fixed region still has 29,862 bytes
+  end to 7,871,424 bytes, padded to 8 MB (93%). Password codec/UI add ~5.9 KB of code/tables. The fixed region still has 38,054 bytes
   of headroom. Packing the 144 star/spark frames into 25 unique 8x8 tiles
   in seven ordinary cache slots saves 70,144 ROM bytes and 136 BSS bytes,
   including the new cache-full flag; every converted pixel is preserved. Datacubes add 133,684 bytes of fixed packed line maps/references

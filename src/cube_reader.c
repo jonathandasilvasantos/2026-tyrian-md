@@ -1,3 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Jonathan Santos and contributors.
+ * See LICENSE and NOTICE.
+ */
 /* Datacube reader: original 150-pixel wrapping and faces, nine visible lines.
  * Five 32x8 sprites per line retain the PC's 12-pixel spacing and pixel
  * coordinates (plus 12 screen lines). Two VRAM pages keep old text intact

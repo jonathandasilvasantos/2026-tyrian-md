@@ -1,3 +1,8 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Jonathan Santos and contributors.
+ * Portions adapted from OpenTyrian, Copyright (C) The OpenTyrian Development Team.
+ * See LICENSE and NOTICE.
+ */
 /* player.h — the player's ship (OpenTyrian mainint.c:JE_playerMovement). */
 #ifndef GAME_PLAYER_H
 #define GAME_PLAYER_H

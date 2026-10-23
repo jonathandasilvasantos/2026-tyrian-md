@@ -1,0 +1,18 @@
+{
+  "opentyrian": {
+    "url": "https://github.com/opentyrian/opentyrian.git",
+    "revision": "ac5d0e71f4245744350c6116ce24f10624da58f8",
+    "directory": "open-tyrian"
+  },
+  "sgdk": {
+    "url": "https://github.com/Stephane-D/SGDK.git",
+    "revision": "8ff3606ff794a12a07e406a8c48864988d3eacb3",
+    "directory": "sgdk",
+    "tag": "v2.00"
+  },
+  "data": {
+    "url": "https://camanis.net/tyrian/tyrian21.zip",
+    "sha256": "7790d09a2a3addcd33c66ef063d5900eb81cc9c342f4807eb8356364dd1d9277",
+    "directory": "tyrian-data"
+  }
+}

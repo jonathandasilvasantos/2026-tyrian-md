@@ -1,3 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 Jonathan Santos and contributors.
+ * See LICENSE and NOTICE.
+ */
 /* Story presentation owns no simulation state; all images/text are ROM tiles. */
 #ifndef STORY_H
 #define STORY_H
